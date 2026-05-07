@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Blocks,
+  Database,
   Building2,
   ChartNoAxesCombined,
   Gauge,
@@ -44,9 +45,19 @@ const sidebarItems: SidebarItem[] = [
     icon: Megaphone,
   },
   {
+    label: "Meta Insights",
+    href: "/dashboard/meta-ads/insights",
+    icon: Database,
+  },
+  {
     label: "GAM / ActiveView",
     href: "/dashboard/gam",
     icon: BarChart3,
+  },
+  {
+    label: "Receita ActiveView",
+    href: "/dashboard/gam/revenue",
+    icon: Database,
   },
   {
     label: "Mapeamentos",
@@ -74,7 +85,10 @@ const sidebarItems: SidebarItem[] = [
 
 function SidebarLink({ item }: { item: SidebarItem }) {
   const pathname = usePathname();
-  const isActive = item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href);
+  const isActive =
+    item.href === "/dashboard" || item.href === "/dashboard/meta-ads" || item.href === "/dashboard/gam"
+      ? pathname === item.href
+      : pathname.startsWith(item.href);
   const Icon = item.icon;
 
   if (item.disabled) {

@@ -156,6 +156,44 @@ O modelo `CampaignMapping` vincula campanhas Meta Ads aos campos ActiveView/GAM 
 - `createdAt`
 - `updatedAt`
 
+O modelo `MetaInsight` armazena dados manuais ou importados de performance de campanhas Meta Ads por data:
+
+- `id`
+- `userId`
+- `projectId`
+- `metaAccountId`
+- `campaignId`
+- `campaignName`
+- `spend`
+- `impressions`
+- `clicks`
+- `cpc`
+- `cpm`
+- `ctr`
+- `date`
+- `level`
+- `createdAt`
+
+O modelo `ActiveViewRevenue` armazena dados manuais ou importados de receita ActiveView/GAM por data:
+
+- `id`
+- `userId`
+- `projectId`
+- `gamConnectionId`
+- `date`
+- `domain`
+- `networkCode`
+- `source`
+- `campaignKey`
+- `adKey`
+- `revenueGross`
+- `revenueNet`
+- `views`
+- `rpm`
+- `currency`
+- `rawJson`
+- `createdAt`
+
 ## Autenticação
 
 A autenticação usa provider de credenciais do NextAuth/Auth.js com páginas customizadas em `/login` e `/register`. As senhas são armazenadas como hash bcrypt no campo `passwordHash`.
@@ -164,7 +202,7 @@ O cadastro é feito por `POST /api/auth/register`, validado com zod, e nunca ret
 
 ## Layout do SaaS
 
-O dashboard possui layout premium em dark mode com sidebar fixa em desktop, navegação inferior responsiva em telas menores, header superior, cards de métricas iniciais e estado vazio sem dados reais. O módulo de Projetos permite listar, criar, editar e excluir projetos do usuário logado em `/dashboard/projects`. O módulo Meta Ads permite cadastrar múltiplas contas por projeto em `/dashboard/meta-ads`, sem sincronizar ou chamar APIs externas. O módulo GAM / ActiveView permite cadastrar conexões por projeto em `/dashboard/gam`, também sem sincronização. O módulo de Mapeamentos em `/dashboard/mappings` vincula campanhas Meta Ads a campos ActiveView/GAM por projeto. O Tracking Builder em `/dashboard/tracking-builder` gera URLs com UTMs e macros para uso no Meta Ads Manager, sem persistência em banco. O item de ROI aparece apenas como navegação planejada, sem lógica de relatório nesta etapa.
+O dashboard possui layout premium em dark mode com sidebar fixa em desktop, navegação inferior responsiva em telas menores, header superior, cards de métricas iniciais e estado vazio sem dados reais. O módulo de Projetos permite listar, criar, editar e excluir projetos do usuário logado em `/dashboard/projects`. O módulo Meta Ads permite cadastrar múltiplas contas por projeto em `/dashboard/meta-ads`, sem sincronizar ou chamar APIs externas, e inserir insights manuais em `/dashboard/meta-ads/insights`. O módulo GAM / ActiveView permite cadastrar conexões por projeto em `/dashboard/gam`, também sem sincronização, e inserir receita manual em `/dashboard/gam/revenue`. O módulo de Mapeamentos em `/dashboard/mappings` vincula campanhas Meta Ads a campos ActiveView/GAM por projeto. O Tracking Builder em `/dashboard/tracking-builder` gera URLs com UTMs e macros para uso no Meta Ads Manager, sem persistência em banco. O item de ROI aparece apenas como navegação planejada, sem lógica de relatório nesta etapa.
 
 ## API de projetos
 
@@ -184,6 +222,8 @@ As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountI
 - `POST /api/meta/accounts`
 - `PATCH /api/meta/accounts/[id]`
 - `DELETE /api/meta/accounts/[id]`
+- `GET /api/meta/insights`
+- `POST /api/meta/insights/manual`
 
 ## API de GAM / ActiveView
 
@@ -193,6 +233,8 @@ As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptogr
 - `POST /api/gam/connections`
 - `PATCH /api/gam/connections/[id]`
 - `DELETE /api/gam/connections/[id]`
+- `GET /api/gam/revenue`
+- `POST /api/gam/revenue/manual`
 
 ## Tracking Builder
 
