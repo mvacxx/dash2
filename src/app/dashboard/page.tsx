@@ -83,8 +83,8 @@ export default async function DashboardPage() {
             </h1>
             <p className="mt-4 text-base leading-7 text-slate-300 md:text-lg">
               Esta é a base visual do Dashzada ROI. Projetos, Meta Ads,
-              GAM / ActiveView e Tracking Builder já aceitam cadastros e geração
-              operacional. Mapeamentos e ROI seguem como estrutura futura.
+              GAM / ActiveView, Mapeamentos e Tracking Builder já aceitam
+              cadastros e geração operacional. ROI segue como estrutura futura.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Button className="sm:w-auto" type="button">
@@ -131,7 +131,7 @@ export default async function DashboardPage() {
           </div>
 
           <div className="mt-6 space-y-4">
-            {["Mapeamentos", "ROI"].map(
+            {["ROI"].map(
               (item) => (
                 <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4" key={item}>
                   <span className="text-sm font-medium text-slate-200">{item}</span>

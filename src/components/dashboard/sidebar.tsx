@@ -50,9 +50,8 @@ const sidebarItems: SidebarItem[] = [
   },
   {
     label: "Mapeamentos",
-    href: "/dashboard/mapeamentos",
+    href: "/dashboard/mappings",
     icon: Map,
-    disabled: true,
   },
   {
     label: "Tracking Builder",
@@ -112,6 +111,7 @@ export function Sidebar() {
   const isProjectsActive = pathname.startsWith("/dashboard/projects");
   const isMetaAdsActive = pathname.startsWith("/dashboard/meta-ads");
   const isGamActive = pathname.startsWith("/dashboard/gam");
+  const isMappingsActive = pathname.startsWith("/dashboard/mappings");
   const isTrackingBuilderActive = pathname.startsWith("/dashboard/tracking-builder");
 
   return (
@@ -186,6 +186,16 @@ export function Sidebar() {
           >
             <BarChart3 size={18} />
             GAM
+          </Link>
+          <Link
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
+              isMappingsActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+            )}
+            href="/dashboard/mappings"
+          >
+            <Map size={18} />
+            Mapas
           </Link>
           <Link
             className={cn(
