@@ -58,7 +58,6 @@ const sidebarItems: SidebarItem[] = [
     label: "Tracking Builder",
     href: "/dashboard/tracking-builder",
     icon: Wrench,
-    disabled: true,
   },
   {
     label: "ROI",
@@ -113,6 +112,7 @@ export function Sidebar() {
   const isProjectsActive = pathname.startsWith("/dashboard/projects");
   const isMetaAdsActive = pathname.startsWith("/dashboard/meta-ads");
   const isGamActive = pathname.startsWith("/dashboard/gam");
+  const isTrackingBuilderActive = pathname.startsWith("/dashboard/tracking-builder");
 
   return (
     <>
@@ -186,6 +186,16 @@ export function Sidebar() {
           >
             <BarChart3 size={18} />
             GAM
+          </Link>
+          <Link
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
+              isTrackingBuilderActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+            )}
+            href="/dashboard/tracking-builder"
+          >
+            <Wrench size={18} />
+            Tracking
           </Link>
           <LogoutButton compact />
         </div>
