@@ -37,7 +37,9 @@ export default async function MetaAdsPage({ searchParams }: MetaAdsPageProps) {
       domain: true,
     },
   });
-  const selectedProjectId = projects.some((project) => project.id === params?.projectId)
+  const selectedProjectId = projects.some(
+    (project) => project.id === params?.projectId,
+  )
     ? params?.projectId
     : projects[0]?.id;
 
@@ -61,22 +63,27 @@ export default async function MetaAdsPage({ searchParams }: MetaAdsPageProps) {
         },
       })
     : [];
-  const safeAccounts = accounts.map(({ accessToken: _accessToken, ...account }) => ({
-    ...account,
-    accessToken: "********",
-    createdAt: account.createdAt.toISOString(),
-    updatedAt: account.updatedAt.toISOString(),
-  }));
+  const safeAccounts = accounts.map(
+    ({ accessToken: _accessToken, ...account }) => ({
+      ...account,
+      accessToken: "********",
+      createdAt: account.createdAt.toISOString(),
+      updatedAt: account.updatedAt.toISOString(),
+    }),
+  );
 
   return (
     <PageContainer>
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <Badge variant="success">Meta Ads</Badge>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-white">Contas Meta Ads</h1>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-white">
+            Contas Meta Ads
+          </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Cadastre múltiplas contas Meta Ads por projeto. Esta etapa apenas
-            guarda as credenciais com segurança; nenhuma sincronização é executada.
+            Cadastre múltiplas contas Meta Ads por projeto, guarde tokens com
+            segurança e sincronize insights reais de campanhas para alimentar o
+            ROI.
           </p>
         </div>
       </div>

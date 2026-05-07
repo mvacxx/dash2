@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Edit3, Plus, Trash2, X } from "lucide-react";
+import { Edit3, Plus, RefreshCw, Trash2, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,9 @@ type MetaAccountsManagerProps = {
 
 type ApiResponse = {
   message?: string;
+  result?: {
+    count: number;
+  };
 };
 
 const connectionTypes = [
@@ -56,12 +59,17 @@ export function MetaAccountsManager({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
-  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(
+    null,
+  );
+  const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null);
+  const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId),
     [projects, selectedProjectId],
   );
+  const defaultSyncDateRange = useMemo(() => getDefaultDateRange(), []);
 
   function handleProjectChange(projectId: string) {
     router.push(`/dashboard/meta-ads?projectId=${projectId}`);
@@ -69,7 +77,9 @@ export function MetaAccountsManager({
 
   function resetCreateForm(form: HTMLFormElement) {
     form.reset();
-    const projectInput = form.elements.namedItem("projectId") as HTMLInputElement | null;
+    const projectInput = form.elements.namedItem(
+      "projectId",
+    ) as HTMLInputElement | null;
 
     if (projectInput) {
       projectInput.value = selectedProjectId;
@@ -92,7 +102,9 @@ export function MetaAccountsManager({
         },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json().catch(() => null)) as ApiResponse | null;
+      const data = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
         setError(data?.message ?? "Não foi possível criar a conta Meta Ads.");
@@ -104,7 +116,10 @@ export function MetaAccountsManager({
     });
   }
 
-  async function handleUpdate(event: FormEvent<HTMLFormElement>, accountId: string) {
+  async function handleUpdate(
+    event: FormEvent<HTMLFormElement>,
+    accountId: string,
+  ) {
     event.preventDefault();
     setError(null);
 
@@ -119,10 +134,14 @@ export function MetaAccountsManager({
         },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json().catch(() => null)) as ApiResponse | null;
+      const data = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
-        setError(data?.message ?? "Não foi possível atualizar a conta Meta Ads.");
+        setError(
+          data?.message ?? "Não foi possível atualizar a conta Meta Ads.",
+        );
         return;
       }
 
@@ -132,7 +151,9 @@ export function MetaAccountsManager({
   }
 
   function handleDelete(accountId: string) {
-    const confirmed = window.confirm("Tem certeza que deseja remover esta conta Meta Ads?");
+    const confirmed = window.confirm(
+      "Tem certeza que deseja remover esta conta Meta Ads?",
+    );
 
     if (!confirmed) {
       return;
@@ -145,7 +166,9 @@ export function MetaAccountsManager({
       const response = await fetch(`/api/meta/accounts/${accountId}`, {
         method: "DELETE",
       });
-      const data = (await response.json().catch(() => null)) as ApiResponse | null;
+      const data = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
         setError(data?.message ?? "Não foi possível remover a conta Meta Ads.");
@@ -154,6 +177,51 @@ export function MetaAccountsManager({
       }
 
       setDeletingAccountId(null);
+      router.refresh();
+    });
+  }
+
+  async function handleSync(
+    event: FormEvent<HTMLFormElement>,
+    accountId: string,
+  ) {
+    event.preventDefault();
+    setError(null);
+    setSyncSuccess(null);
+    setSyncingAccountId(accountId);
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      projectId: selectedProjectId,
+      metaAccountId: accountId,
+      dateFrom: String(formData.get("dateFrom") ?? ""),
+      dateTo: String(formData.get("dateTo") ?? ""),
+    };
+
+    startTransition(async () => {
+      const response = await fetch("/api/meta/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
+
+      if (!response.ok) {
+        setError(
+          data?.message ?? "Não foi possível sincronizar a Meta Ads API.",
+        );
+        setSyncingAccountId(null);
+        return;
+      }
+
+      setSyncSuccess(
+        `${data?.result?.count ?? 0} insight(s) sincronizado(s) com sucesso.`,
+      );
+      setSyncingAccountId(null);
       router.refresh();
     });
   }
@@ -168,12 +236,16 @@ export function MetaAccountsManager({
               {selectedProject?.name ?? "Selecione um projeto"}
             </h2>
             <p className="mt-2 text-sm text-slate-400">
-              {selectedProject?.domain ?? "As contas Meta Ads serão vinculadas ao projeto escolhido."}
+              {selectedProject?.domain ??
+                "As contas Meta Ads serão vinculadas ao projeto escolhido."}
             </p>
           </div>
         </div>
 
-        <label className="mt-6 block text-sm font-medium text-slate-200" htmlFor="projectSelector">
+        <label
+          className="mt-6 block text-sm font-medium text-slate-200"
+          htmlFor="projectSelector"
+        >
           Projeto
         </label>
         <select
@@ -190,14 +262,23 @@ export function MetaAccountsManager({
         </select>
 
         <form className="mt-6 space-y-5" onSubmit={handleCreate}>
-          <input readOnly name="projectId" type="hidden" value={selectedProjectId} />
+          <input
+            readOnly
+            name="projectId"
+            type="hidden"
+            value={selectedProjectId}
+          />
           <MetaAccountFields mode="create" />
           {error ? (
             <div className="rounded-2xl border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
               {error}
             </div>
           ) : null}
-          <Button className="w-full" disabled={isPending || !selectedProjectId} type="submit">
+          <Button
+            className="w-full"
+            disabled={isPending || !selectedProjectId}
+            type="submit"
+          >
             <Plus size={18} />
             {isPending ? "Salvando..." : "Cadastrar conta Meta"}
           </Button>
@@ -207,21 +288,36 @@ export function MetaAccountsManager({
       <section className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl shadow-slate-950/20">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
           <div>
-            <p className="text-sm font-medium text-slate-400">Contas cadastradas</p>
+            <p className="text-sm font-medium text-slate-400">
+              Contas cadastradas
+            </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
               {accounts.length} {accounts.length === 1 ? "conta" : "contas"}
             </h2>
           </div>
-          <Badge>Sem sincronização</Badge>
+          <Badge variant="success">Sincronização disponível</Badge>
         </div>
 
         <div className="mt-6 space-y-4">
+          {syncSuccess ? (
+            <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+              {syncSuccess}
+            </div>
+          ) : null}
+          {error ? (
+            <div className="rounded-2xl border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+              {error}
+            </div>
+          ) : null}
+
           {accounts.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.03] p-8 text-center">
-              <h3 className="text-xl font-semibold text-white">Nenhuma conta Meta Ads cadastrada</h3>
+              <h3 className="text-xl font-semibold text-white">
+                Nenhuma conta Meta Ads cadastrada
+              </h3>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-400">
-                Cadastre uma conta para preparar a futura sincronização. Nenhuma
-                chamada à API da Meta será feita nesta etapa.
+                Cadastre uma conta Meta API para sincronizar campanhas e
+                insights reais da Meta Ads API.
               </p>
             </div>
           ) : (
@@ -231,11 +327,23 @@ export function MetaAccountsManager({
                 key={account.id}
               >
                 {editingAccountId === account.id ? (
-                  <form className="space-y-5" onSubmit={(event) => handleUpdate(event, account.id)}>
-                    <input readOnly name="projectId" type="hidden" value={selectedProjectId} />
+                  <form
+                    className="space-y-5"
+                    onSubmit={(event) => handleUpdate(event, account.id)}
+                  >
+                    <input
+                      readOnly
+                      name="projectId"
+                      type="hidden"
+                      value={selectedProjectId}
+                    />
                     <MetaAccountFields account={account} mode="edit" />
                     <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                      <Button onClick={() => setEditingAccountId(null)} type="button" variant="ghost">
+                      <Button
+                        onClick={() => setEditingAccountId(null)}
+                        type="button"
+                        variant="ghost"
+                      >
                         <X size={18} />
                         Cancelar
                       </Button>
@@ -248,31 +356,100 @@ export function MetaAccountsManager({
                   <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-xl font-semibold text-white">{account.label}</h3>
-                        <Badge variant={account.connectionType === "META_API" ? "success" : "warning"}>
-                          {account.connectionType === "META_API" ? "Meta API" : "Manual"}
+                        <h3 className="text-xl font-semibold text-white">
+                          {account.label}
+                        </h3>
+                        <Badge
+                          variant={
+                            account.connectionType === "META_API"
+                              ? "success"
+                              : "warning"
+                          }
+                        >
+                          {account.connectionType === "META_API"
+                            ? "Meta API"
+                            : "Manual"}
                         </Badge>
                       </div>
                       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                        <MetaInfo label="Ad account" value={account.adAccountId} />
+                        <MetaInfo
+                          label="Ad account"
+                          value={account.adAccountId}
+                        />
                         <MetaInfo label="Token" value={account.accessToken} />
-                        <MetaInfo label="Projeto" value={account.project.name} />
-                        <MetaInfo label="Domínio" value={account.project.domain} />
+                        <MetaInfo
+                          label="Projeto"
+                          value={account.project.name}
+                        />
+                        <MetaInfo
+                          label="Domínio"
+                          value={account.project.domain}
+                        />
                       </dl>
                     </div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => setEditingAccountId(account.id)} variant="secondary">
-                        <Edit3 size={18} />
-                        Editar
-                      </Button>
-                      <Button
-                        disabled={deletingAccountId === account.id}
-                        onClick={() => handleDelete(account.id)}
-                        variant="danger"
+                    <div className="flex flex-col gap-3 lg:min-w-72">
+                      <form
+                        className="rounded-2xl border border-white/10 bg-slate-950/50 p-3"
+                        onSubmit={(event) => handleSync(event, account.id)}
                       >
-                        <Trash2 size={18} />
-                        {deletingAccountId === account.id ? "Removendo..." : "Remover"}
-                      </Button>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Sincronizar insights
+                        </p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <label className="text-xs text-slate-400">
+                            De
+                            <Input
+                              defaultValue={defaultSyncDateRange.dateFrom}
+                              name="dateFrom"
+                              required
+                              type="date"
+                            />
+                          </label>
+                          <label className="text-xs text-slate-400">
+                            Até
+                            <Input
+                              defaultValue={defaultSyncDateRange.dateTo}
+                              name="dateTo"
+                              required
+                              type="date"
+                            />
+                          </label>
+                        </div>
+                        <Button
+                          className="mt-3 w-full"
+                          disabled={
+                            isPending ||
+                            syncingAccountId === account.id ||
+                            account.connectionType !== "META_API"
+                          }
+                          type="submit"
+                          variant="secondary"
+                        >
+                          <RefreshCw size={18} />
+                          {syncingAccountId === account.id
+                            ? "Sincronizando..."
+                            : "Sincronizar"}
+                        </Button>
+                      </form>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => setEditingAccountId(account.id)}
+                          variant="secondary"
+                        >
+                          <Edit3 size={18} />
+                          Editar
+                        </Button>
+                        <Button
+                          disabled={deletingAccountId === account.id}
+                          onClick={() => handleDelete(account.id)}
+                          variant="danger"
+                        >
+                          <Trash2 size={18} />
+                          {deletingAccountId === account.id
+                            ? "Removendo..."
+                            : "Remover"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -285,7 +462,11 @@ export function MetaAccountsManager({
   );
 }
 
-function buildPayload(formData: FormData, fallbackProjectId: string, includeEmptyToken: boolean) {
+function buildPayload(
+  formData: FormData,
+  fallbackProjectId: string,
+  includeEmptyToken: boolean,
+) {
   const accessToken = String(formData.get("accessToken") ?? "").trim();
   const payload = {
     projectId: String(formData.get("projectId") ?? fallbackProjectId),
@@ -308,7 +489,10 @@ function MetaAccountFields({
   return (
     <div className="grid gap-5 md:grid-cols-2">
       <div className="md:col-span-2">
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-label`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-label`}
+        >
           Nome da conta
         </label>
         <Input
@@ -323,7 +507,10 @@ function MetaAccountFields({
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-adAccountId`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-adAccountId`}
+        >
           Ad Account ID
         </label>
         <Input
@@ -337,7 +524,10 @@ function MetaAccountFields({
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-connectionType`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-connectionType`}
+        >
           Tipo de conexão
         </label>
         <select
@@ -355,7 +545,10 @@ function MetaAccountFields({
       </div>
 
       <div className="md:col-span-2">
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-accessToken`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-accessToken`}
+        >
           Access token
         </label>
         <Input
@@ -363,22 +556,45 @@ function MetaAccountFields({
           autoComplete="off"
           id={`${mode}-accessToken`}
           name="accessToken"
-          placeholder={mode === "create" ? "Token de acesso Meta" : "Deixe em branco para manter o token atual"}
+          placeholder={
+            mode === "create"
+              ? "Token de acesso Meta"
+              : "Deixe em branco para manter o token atual"
+          }
           type="password"
         />
         <p className="mt-2 text-xs text-slate-500">
-          O token é criptografado antes de ser salvo e nunca é exibido novamente.
+          O token é criptografado antes de ser salvo e nunca é exibido
+          novamente.
         </p>
       </div>
     </div>
   );
 }
 
+function getDefaultDateRange() {
+  const dateTo = new Date();
+  const dateFrom = new Date();
+  dateFrom.setUTCDate(dateTo.getUTCDate() - 7);
+
+  return {
+    dateFrom: dateFrom.toISOString().slice(0, 10),
+    dateTo: dateTo.toISOString().slice(0, 10),
+  };
+}
+
 function MetaInfo({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-slate-950/60 p-3">
       <dt className="text-slate-500">{label}</dt>
-      <dd className={cn("mt-1 truncate font-semibold text-slate-200", label === "Token" && "tracking-[0.25em]")}>{value}</dd>
+      <dd
+        className={cn(
+          "mt-1 truncate font-semibold text-slate-200",
+          label === "Token" && "tracking-[0.25em]",
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

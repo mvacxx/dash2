@@ -44,6 +44,7 @@ Base limpa para um SaaS multiusuário que compara gasto de campanhas Meta Ads co
    AUTH_SECRET="replace-with-a-secure-random-secret"
    AUTH_URL="http://localhost:3000"
    TOKEN_ENCRYPTION_KEY="replace-with-a-token-encryption-secret"
+   FACEBOOK_GRAPH_VERSION="v20.0"
    ```
 
 4. Gere o Prisma Client:
@@ -202,7 +203,7 @@ O cadastro é feito por `POST /api/auth/register`, validado com zod, e nunca ret
 
 ## Layout do SaaS
 
-O dashboard possui layout premium em dark mode com sidebar fixa em desktop, navegação inferior responsiva em telas menores, header superior, cards de métricas iniciais e estado vazio sem dados reais. O módulo de Projetos permite listar, criar, editar e excluir projetos do usuário logado em `/dashboard/projects`. O módulo Meta Ads permite cadastrar múltiplas contas por projeto em `/dashboard/meta-ads`, sem sincronizar ou chamar APIs externas, e inserir insights manuais em `/dashboard/meta-ads/insights`. O módulo GAM / ActiveView permite cadastrar conexões por projeto em `/dashboard/gam`, também sem sincronização, e inserir receita manual em `/dashboard/gam/revenue`. O módulo de Mapeamentos em `/dashboard/mappings` vincula campanhas Meta Ads a campos ActiveView/GAM por projeto. O Tracking Builder em `/dashboard/tracking-builder` gera URLs com UTMs e macros para uso no Meta Ads Manager, sem persistência em banco. O relatório de ROI em `/dashboard/roi` calcula resultado por campanha usando dados manuais.
+O dashboard possui layout premium em dark mode com sidebar fixa em desktop, navegação inferior responsiva em telas menores, header superior, cards de métricas iniciais e estado vazio sem dados reais. O módulo de Projetos permite listar, criar, editar e excluir projetos do usuário logado em `/dashboard/projects`. O módulo Meta Ads permite cadastrar múltiplas contas por projeto em `/dashboard/meta-ads`, sincronizar insights reais pela Meta Ads API e inserir insights manuais em `/dashboard/meta-ads/insights`. O módulo GAM / ActiveView permite cadastrar conexões por projeto em `/dashboard/gam`, sem sincronização real nesta etapa, e inserir receita manual em `/dashboard/gam/revenue`. O módulo de Mapeamentos em `/dashboard/mappings` vincula campanhas Meta Ads a campos ActiveView/GAM por projeto. O Tracking Builder em `/dashboard/tracking-builder` gera URLs com UTMs e macros para uso no Meta Ads Manager, sem persistência em banco. O relatório de ROI em `/dashboard/roi` calcula resultado por campanha usando dados manuais e sincronizados.
 
 ## API de projetos
 
@@ -216,7 +217,7 @@ As rotas protegidas de projetos usam a sessão atual e impedem acesso a projetos
 
 ## API de Meta Ads
 
-As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountId` começando com `act_`, criptografam `accessToken` com `TOKEN_ENCRYPTION_KEY` e nunca retornam o token real ao frontend:
+As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountId` começando com `act_`, criptografam `accessToken` com `TOKEN_ENCRYPTION_KEY`, nunca retornam o token real ao frontend e permitem sincronizar insights reais via Graph API:
 
 - `GET /api/meta/accounts`
 - `POST /api/meta/accounts`
@@ -224,6 +225,7 @@ As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountI
 - `DELETE /api/meta/accounts/[id]`
 - `GET /api/meta/insights`
 - `POST /api/meta/insights/manual`
+- `POST /api/meta/sync`
 
 ## API de GAM / ActiveView
 
