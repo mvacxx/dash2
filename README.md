@@ -1,8 +1,8 @@
 # Dashzada ROI
 
-Base limpa para um SaaS multiusuário que futuramente comparará gasto de campanhas Meta Ads com receita ActiveView/GAM para cálculo de ROI por campanha.
+Base limpa para um SaaS multiusuário que compara gasto de campanhas Meta Ads com receita ActiveView/GAM para cálculo de ROI por campanha.
 
-> Nesta etapa inicial, o projeto **não** possui integrações Meta Ads, ActiveView/GAM, mapeamentos ou relatórios de ROI.
+> Nesta etapa, o projeto usa dados manuais de Meta Insights e ActiveView/GAM para validar o ROI antes das integrações reais.
 
 ## Stack
 
@@ -202,7 +202,7 @@ O cadastro é feito por `POST /api/auth/register`, validado com zod, e nunca ret
 
 ## Layout do SaaS
 
-O dashboard possui layout premium em dark mode com sidebar fixa em desktop, navegação inferior responsiva em telas menores, header superior, cards de métricas iniciais e estado vazio sem dados reais. O módulo de Projetos permite listar, criar, editar e excluir projetos do usuário logado em `/dashboard/projects`. O módulo Meta Ads permite cadastrar múltiplas contas por projeto em `/dashboard/meta-ads`, sem sincronizar ou chamar APIs externas, e inserir insights manuais em `/dashboard/meta-ads/insights`. O módulo GAM / ActiveView permite cadastrar conexões por projeto em `/dashboard/gam`, também sem sincronização, e inserir receita manual em `/dashboard/gam/revenue`. O módulo de Mapeamentos em `/dashboard/mappings` vincula campanhas Meta Ads a campos ActiveView/GAM por projeto. O Tracking Builder em `/dashboard/tracking-builder` gera URLs com UTMs e macros para uso no Meta Ads Manager, sem persistência em banco. O item de ROI aparece apenas como navegação planejada, sem lógica de relatório nesta etapa.
+O dashboard possui layout premium em dark mode com sidebar fixa em desktop, navegação inferior responsiva em telas menores, header superior, cards de métricas iniciais e estado vazio sem dados reais. O módulo de Projetos permite listar, criar, editar e excluir projetos do usuário logado em `/dashboard/projects`. O módulo Meta Ads permite cadastrar múltiplas contas por projeto em `/dashboard/meta-ads`, sem sincronizar ou chamar APIs externas, e inserir insights manuais em `/dashboard/meta-ads/insights`. O módulo GAM / ActiveView permite cadastrar conexões por projeto em `/dashboard/gam`, também sem sincronização, e inserir receita manual em `/dashboard/gam/revenue`. O módulo de Mapeamentos em `/dashboard/mappings` vincula campanhas Meta Ads a campos ActiveView/GAM por projeto. O Tracking Builder em `/dashboard/tracking-builder` gera URLs com UTMs e macros para uso no Meta Ads Manager, sem persistência em banco. O relatório de ROI em `/dashboard/roi` calcula resultado por campanha usando dados manuais.
 
 ## API de projetos
 
@@ -239,6 +239,12 @@ As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptogr
 ## Tracking Builder
 
 A página `/dashboard/tracking-builder` gera URLs para anúncios Meta Ads com os parâmetros `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `fb_campaign_id`, `fb_adset_id` e `fb_ad_id`. A ferramenta exibe preview, permite copiar a URL final e não grava dados no banco.
+
+## API de ROI
+
+A rota protegida de ROI usa a sessão atual, valida projeto/conta Meta Ads e agrega Meta Insights, mapeamentos e receita ActiveView/GAM por campanha:
+
+- `GET /api/roi/campaigns`
 
 ## API de Mapeamentos
 

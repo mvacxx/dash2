@@ -6,6 +6,7 @@ import {
   MousePointerClick,
   TrendingUp,
 } from "lucide-react";
+import Link from "next/link";
 
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { MetricCard } from "@/components/dashboard/metric-card";
@@ -26,30 +27,31 @@ const baseMetrics = [
   {
     title: "Campanhas Meta Ads",
     value: "0",
-    description: "A integração Meta Ads ainda não foi implementada.",
+    description: "Contas e insights manuais já podem ser cadastrados.",
     icon: MousePointerClick,
-    badge: "Futuro",
+    badge: "Manual",
   },
   {
     title: "Receita GAM / ActiveView",
     value: "R$ 0,00",
-    description: "A importação de receita será criada em uma etapa futura.",
+    description: "Receitas manuais já podem ser usadas para testes.",
     icon: CircleDollarSign,
-    badge: "Futuro",
+    badge: "Manual",
   },
   {
     title: "ROI consolidado",
-    value: "—",
-    description: "O relatório de ROI ainda não existe nesta versão.",
+    value: "Disponível",
+    description: "Relatório por campanha disponível com dados manuais.",
     icon: TrendingUp,
-    badge: "Futuro",
+    badge: "Operacional",
   },
 ];
 
 export default async function DashboardPage() {
   const session = await auth();
   const userId = session?.user?.id;
-  const firstName = session?.user?.name?.split(" ")[0] ?? session?.user?.email ?? "usuário";
+  const firstName =
+    session?.user?.name?.split(" ")[0] ?? session?.user?.email ?? "usuário";
   const projectCount = userId
     ? await prisma.project.count({
         where: {
@@ -82,18 +84,20 @@ export default async function DashboardPage() {
               Bem-vindo, {firstName}.
             </h1>
             <p className="mt-4 text-base leading-7 text-slate-300 md:text-lg">
-              Esta é a base visual do Dashzada ROI. Projetos, Meta Ads,
-              GAM / ActiveView, Mapeamentos e Tracking Builder já aceitam
-              cadastros e geração operacional. ROI segue como estrutura futura.
+              Esta é a base visual do Dashzada ROI. Projetos, Meta Ads, GAM /
+              ActiveView, Mapeamentos, Tracking Builder e ROI já aceitam dados
+              manuais para validar o cálculo antes das integrações reais.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Button className="sm:w-auto" type="button">
-                <BarChart3 size={18} />
-                Ver resumo inicial
-              </Button>
+              <Link href="/dashboard/roi">
+                <Button className="sm:w-auto" type="button">
+                  <BarChart3 size={18} />
+                  Ver ROI por campanha
+                </Button>
+              </Link>
               <Button className="sm:w-auto" type="button" variant="secondary">
                 <DatabaseZap size={18} />
-                Aguardar integrações
+                Dados manuais disponíveis
               </Button>
             </div>
           </div>
@@ -124,21 +128,31 @@ export default async function DashboardPage() {
         <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl shadow-slate-950/20">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-slate-400">Próximos módulos</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Roadmap visual</h2>
+              <p className="text-sm font-medium text-slate-400">
+                Próximos módulos
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
+                Roadmap visual
+              </h2>
             </div>
             <Badge>Planejado</Badge>
           </div>
 
           <div className="mt-6 space-y-4">
-            {["ROI"].map(
-              (item) => (
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4" key={item}>
-                  <span className="text-sm font-medium text-slate-200">{item}</span>
-                  <Badge variant="warning">Em breve</Badge>
-                </div>
-              ),
-            )}
+            {[
+              "Integrações reais Meta Ads",
+              "Integrações reais GAM / ActiveView",
+            ].map((item) => (
+              <div
+                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+                key={item}
+              >
+                <span className="text-sm font-medium text-slate-200">
+                  {item}
+                </span>
+                <Badge variant="warning">Em breve</Badge>
+              </div>
+            ))}
           </div>
         </div>
       </section>

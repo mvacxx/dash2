@@ -73,7 +73,6 @@ const sidebarItems: SidebarItem[] = [
     label: "ROI",
     href: "/dashboard/roi",
     icon: ChartNoAxesCombined,
-    disabled: true,
   },
   {
     label: "Configurações",
@@ -86,7 +85,9 @@ const sidebarItems: SidebarItem[] = [
 function SidebarLink({ item }: { item: SidebarItem }) {
   const pathname = usePathname();
   const isActive =
-    item.href === "/dashboard" || item.href === "/dashboard/meta-ads" || item.href === "/dashboard/gam"
+    item.href === "/dashboard" ||
+    item.href === "/dashboard/meta-ads" ||
+    item.href === "/dashboard/gam"
       ? pathname === item.href
       : pathname.startsWith(item.href);
   const Icon = item.icon;
@@ -96,7 +97,10 @@ function SidebarLink({ item }: { item: SidebarItem }) {
       <div className="group flex cursor-not-allowed items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-500">
         <Icon size={18} />
         <span className="flex-1">{item.label}</span>
-        <Badge className="hidden px-2 py-0.5 text-[10px] xl:inline-flex" variant="warning">
+        <Badge
+          className="hidden px-2 py-0.5 text-[10px] xl:inline-flex"
+          variant="warning"
+        >
           Em breve
         </Badge>
       </div>
@@ -126,7 +130,10 @@ export function Sidebar() {
   const isMetaAdsActive = pathname.startsWith("/dashboard/meta-ads");
   const isGamActive = pathname.startsWith("/dashboard/gam");
   const isMappingsActive = pathname.startsWith("/dashboard/mappings");
-  const isTrackingBuilderActive = pathname.startsWith("/dashboard/tracking-builder");
+  const isTrackingBuilderActive = pathname.startsWith(
+    "/dashboard/tracking-builder",
+  );
+  const isRoiActive = pathname.startsWith("/dashboard/roi");
 
   return (
     <>
@@ -136,7 +143,9 @@ export function Sidebar() {
             <Gauge className="text-white" size={22} />
           </div>
           <div>
-            <p className="text-base font-bold tracking-tight text-white">Dashzada ROI</p>
+            <p className="text-base font-bold tracking-tight text-white">
+              Dashzada ROI
+            </p>
             <p className="text-xs text-slate-500">Performance workspace</p>
           </div>
         </Link>
@@ -152,7 +161,9 @@ export function Sidebar() {
             <Blocks className="text-indigo-200" size={20} />
             <div>
               <p className="text-sm font-semibold text-white">Setup inicial</p>
-              <p className="text-xs text-slate-500">Integrações futuras desativadas.</p>
+              <p className="text-xs text-slate-500">
+                Integrações futuras desativadas.
+              </p>
             </div>
           </div>
           <LogoutButton />
@@ -164,7 +175,9 @@ export function Sidebar() {
           <Link
             className={cn(
               "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
-              isDashboardActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+              isDashboardActive
+                ? "bg-indigo-400/10 text-indigo-100"
+                : "text-slate-300",
             )}
             href="/dashboard"
           >
@@ -174,7 +187,9 @@ export function Sidebar() {
           <Link
             className={cn(
               "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
-              isProjectsActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+              isProjectsActive
+                ? "bg-indigo-400/10 text-indigo-100"
+                : "text-slate-300",
             )}
             href="/dashboard/projects"
           >
@@ -184,7 +199,9 @@ export function Sidebar() {
           <Link
             className={cn(
               "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
-              isMetaAdsActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+              isMetaAdsActive
+                ? "bg-indigo-400/10 text-indigo-100"
+                : "text-slate-300",
             )}
             href="/dashboard/meta-ads"
           >
@@ -194,7 +211,9 @@ export function Sidebar() {
           <Link
             className={cn(
               "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
-              isGamActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+              isGamActive
+                ? "bg-indigo-400/10 text-indigo-100"
+                : "text-slate-300",
             )}
             href="/dashboard/gam"
           >
@@ -204,7 +223,9 @@ export function Sidebar() {
           <Link
             className={cn(
               "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
-              isMappingsActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+              isMappingsActive
+                ? "bg-indigo-400/10 text-indigo-100"
+                : "text-slate-300",
             )}
             href="/dashboard/mappings"
           >
@@ -214,12 +235,26 @@ export function Sidebar() {
           <Link
             className={cn(
               "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
-              isTrackingBuilderActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+              isTrackingBuilderActive
+                ? "bg-indigo-400/10 text-indigo-100"
+                : "text-slate-300",
             )}
             href="/dashboard/tracking-builder"
           >
             <Wrench size={18} />
             Tracking
+          </Link>
+          <Link
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
+              isRoiActive
+                ? "bg-indigo-400/10 text-indigo-100"
+                : "text-slate-300",
+            )}
+            href="/dashboard/roi"
+          >
+            <ChartNoAxesCombined size={18} />
+            ROI
           </Link>
           <LogoutButton compact />
         </div>
