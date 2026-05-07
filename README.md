@@ -43,6 +43,7 @@ Base limpa para um SaaS multiusuário que futuramente comparará gasto de campan
    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dashzada_roi?schema=public"
    AUTH_SECRET="replace-with-a-secure-random-secret"
    AUTH_URL="http://localhost:3000"
+   TOKEN_ENCRYPTION_KEY="replace-with-a-token-encryption-secret"
    ```
 
 4. Gere o Prisma Client:
@@ -90,7 +91,7 @@ src/components/ui/*           # Button, Input e Badge reutilizáveis
 
 ## Modelo inicial do banco
 
-O schema Prisma começa apenas com o modelo `User`:
+O schema Prisma inclui o modelo `User`:
 
 - `id`
 - `name`
@@ -112,6 +113,31 @@ O modelo `Project` vincula cada projeto/site ao usuário proprietário e será a
 - `createdAt`
 - `updatedAt`
 
+O modelo `MetaAccount` vincula contas Meta Ads criptografadas ao usuário e ao projeto:
+
+- `id`
+- `userId`
+- `projectId`
+- `label`
+- `adAccountId`
+- `accessToken`
+- `connectionType`
+- `createdAt`
+- `updatedAt`
+
+O modelo `GamConnection` vincula conexões GAM / ActiveView criptografadas ao usuário e ao projeto:
+
+- `id`
+- `userId`
+- `projectId`
+- `networkCode`
+- `domain`
+- `authToken`
+- `apiBaseUrl`
+- `reportEndpoint`
+- `createdAt`
+- `updatedAt`
+
 ## Autenticação
 
 A autenticação usa provider de credenciais do NextAuth/Auth.js com páginas customizadas em `/login` e `/register`. As senhas são armazenadas como hash bcrypt no campo `passwordHash`.
@@ -120,7 +146,7 @@ O cadastro é feito por `POST /api/auth/register`, validado com zod, e nunca ret
 
 ## Layout do SaaS
 
-O dashboard possui layout premium em dark mode com sidebar fixa em desktop, navegação inferior responsiva em telas menores, header superior, cards de métricas iniciais e estado vazio sem dados reais. O módulo de Projetos permite listar, criar, editar e excluir projetos do usuário logado em `/dashboard/projects`. Os itens de Meta Ads, GAM / ActiveView, mapeamentos, Tracking Builder e ROI aparecem apenas como navegação planejada, sem lógica de integração nesta etapa.
+O dashboard possui layout premium em dark mode com sidebar fixa em desktop, navegação inferior responsiva em telas menores, header superior, cards de métricas iniciais e estado vazio sem dados reais. O módulo de Projetos permite listar, criar, editar e excluir projetos do usuário logado em `/dashboard/projects`. O módulo Meta Ads permite cadastrar múltiplas contas por projeto em `/dashboard/meta-ads`, sem sincronizar ou chamar APIs externas. O módulo GAM / ActiveView permite cadastrar conexões por projeto em `/dashboard/gam`, também sem sincronização. Os itens de mapeamentos, Tracking Builder e ROI aparecem apenas como navegação planejada, sem lógica de integração nesta etapa.
 
 ## API de projetos
 
@@ -131,3 +157,21 @@ As rotas protegidas de projetos usam a sessão atual e impedem acesso a projetos
 - `GET /api/projects/[id]`
 - `PATCH /api/projects/[id]`
 - `DELETE /api/projects/[id]`
+
+## API de Meta Ads
+
+As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountId` começando com `act_`, criptografam `accessToken` com `TOKEN_ENCRYPTION_KEY` e nunca retornam o token real ao frontend:
+
+- `GET /api/meta/accounts`
+- `POST /api/meta/accounts`
+- `PATCH /api/meta/accounts/[id]`
+- `DELETE /api/meta/accounts/[id]`
+
+## API de GAM / ActiveView
+
+As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY` e nunca retornam o token real ao frontend:
+
+- `GET /api/gam/connections`
+- `POST /api/gam/connections`
+- `PATCH /api/gam/connections/[id]`
+- `DELETE /api/gam/connections/[id]`

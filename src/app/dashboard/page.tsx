@@ -82,9 +82,9 @@ export default async function DashboardPage() {
               Bem-vindo, {firstName}.
             </h1>
             <p className="mt-4 text-base leading-7 text-slate-300 md:text-lg">
-              Esta é a base visual do Dashzada ROI. Os módulos de Meta Ads,
-              GAM / ActiveView, mapeamentos e ROI aparecem apenas como estrutura
-              de navegação e ainda não possuem lógica de integração.
+              Esta é a base visual do Dashzada ROI. Projetos, Meta Ads e
+              GAM / ActiveView já aceitam cadastros operacionais. Mapeamentos,
+              Tracking Builder e ROI seguem como estrutura futura.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Button className="sm:w-auto" type="button">
@@ -131,7 +131,7 @@ export default async function DashboardPage() {
           </div>
 
           <div className="mt-6 space-y-4">
-            {["Projetos", "Meta Ads", "GAM / ActiveView", "Mapeamentos", "Tracking Builder", "ROI"].map(
+            {["Mapeamentos", "Tracking Builder", "ROI"].map(
               (item) => (
                 <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-4" key={item}>
                   <span className="text-sm font-medium text-slate-200">{item}</span>

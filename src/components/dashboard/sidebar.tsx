@@ -42,13 +42,11 @@ const sidebarItems: SidebarItem[] = [
     label: "Meta Ads",
     href: "/dashboard/meta-ads",
     icon: Megaphone,
-    disabled: true,
   },
   {
     label: "GAM / ActiveView",
-    href: "/dashboard/gam-activeview",
+    href: "/dashboard/gam",
     icon: BarChart3,
-    disabled: true,
   },
   {
     label: "Mapeamentos",
@@ -113,6 +111,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const isDashboardActive = pathname === "/dashboard";
   const isProjectsActive = pathname.startsWith("/dashboard/projects");
+  const isMetaAdsActive = pathname.startsWith("/dashboard/meta-ads");
+  const isGamActive = pathname.startsWith("/dashboard/gam");
 
   return (
     <>
@@ -167,10 +167,26 @@ export function Sidebar() {
             <Building2 size={18} />
             Projetos
           </Link>
-          <div className="flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium text-slate-500">
-            <ChartNoAxesCombined size={18} />
-            ROI
-          </div>
+          <Link
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
+              isMetaAdsActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+            )}
+            href="/dashboard/meta-ads"
+          >
+            <Megaphone size={18} />
+            Meta Ads
+          </Link>
+          <Link
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
+              isGamActive ? "bg-indigo-400/10 text-indigo-100" : "text-slate-300",
+            )}
+            href="/dashboard/gam"
+          >
+            <BarChart3 size={18} />
+            GAM
+          </Link>
           <LogoutButton compact />
         </div>
       </nav>
