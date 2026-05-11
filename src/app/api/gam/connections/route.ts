@@ -15,8 +15,8 @@ function serializeGamConnection(connection: {
   projectId: string;
   networkCode: string;
   domain: string;
-  apiBaseUrl: string;
-  reportEndpoint: string;
+  apiBaseUrl: string | null;
+  reportEndpoint: string | null;
   createdAt: Date;
   updatedAt: Date;
   project?: {

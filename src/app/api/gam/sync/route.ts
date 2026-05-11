@@ -129,7 +129,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ message }, { status: 502 });
+    return NextResponse.json(
+      { message },
+      {
+        status: message.startsWith("Configure API base URL") ? 400 : 502,
+      },
+    );
   }
 }
 

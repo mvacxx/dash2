@@ -22,8 +22,8 @@ type GamConnection = {
   networkCode: string;
   domain: string;
   authToken: string;
-  apiBaseUrl: string;
-  reportEndpoint: string;
+  apiBaseUrl: string | null;
+  reportEndpoint: string | null;
   createdAt: string;
   updatedAt: string;
   project: ProjectOption;
@@ -366,11 +366,11 @@ export function GamConnectionsManager({
                         <GamInfo label="Token" value={connection.authToken} />
                         <GamInfo
                           label="API base"
-                          value={connection.apiBaseUrl}
+                          value={connection.apiBaseUrl ?? "Não configurado"}
                         />
                         <GamInfo
                           label="Endpoint"
-                          value={connection.reportEndpoint}
+                          value={connection.reportEndpoint ?? "Não configurado"}
                         />
                         <GamInfo
                           label="Projeto"
@@ -582,38 +582,49 @@ function GamConnectionFields({
         </p>
       </div>
 
-      <div>
-        <label
-          className="mb-2 block text-sm font-medium text-slate-200"
-          htmlFor={`${mode}-apiBaseUrl`}
-        >
-          API base URL
-        </label>
-        <Input
-          required
-          defaultValue={connection?.apiBaseUrl}
-          id={`${mode}-apiBaseUrl`}
-          name="apiBaseUrl"
-          placeholder="https://api.example.com"
-          type="url"
-        />
-      </div>
+      <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="text-sm font-semibold text-slate-200">
+          Configuração avançada
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Informe a API base URL e o Report endpoint somente quando quiser usar
+          a sincronização automática. Esses campos não são necessários para
+          salvar a conexão.
+        </p>
 
-      <div>
-        <label
-          className="mb-2 block text-sm font-medium text-slate-200"
-          htmlFor={`${mode}-reportEndpoint`}
-        >
-          Report endpoint
-        </label>
-        <Input
-          required
-          defaultValue={connection?.reportEndpoint}
-          id={`${mode}-reportEndpoint`}
-          name="reportEndpoint"
-          placeholder="/reports/activeview"
-          type="text"
-        />
+        <div className="mt-4 grid gap-5 md:grid-cols-2">
+          <div>
+            <label
+              className="mb-2 block text-sm font-medium text-slate-200"
+              htmlFor={`${mode}-apiBaseUrl`}
+            >
+              API base URL
+            </label>
+            <Input
+              defaultValue={connection?.apiBaseUrl ?? undefined}
+              id={`${mode}-apiBaseUrl`}
+              name="apiBaseUrl"
+              placeholder="API base URL (opcional)"
+              type="url"
+            />
+          </div>
+
+          <div>
+            <label
+              className="mb-2 block text-sm font-medium text-slate-200"
+              htmlFor={`${mode}-reportEndpoint`}
+            >
+              Report endpoint
+            </label>
+            <Input
+              defaultValue={connection?.reportEndpoint ?? undefined}
+              id={`${mode}-reportEndpoint`}
+              name="reportEndpoint"
+              placeholder="Report endpoint (opcional)"
+              type="text"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

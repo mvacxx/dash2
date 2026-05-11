@@ -175,11 +175,20 @@ export async function syncActiveViewRevenue({
     throw new Error("Conexão GAM não encontrada para este projeto.");
   }
 
+  const apiBaseUrl = connection.apiBaseUrl?.trim();
+  const reportEndpoint = connection.reportEndpoint?.trim();
+
+  if (!apiBaseUrl || !reportEndpoint) {
+    throw new Error(
+      "Configure API base URL e Report endpoint antes de sincronizar GAM / ActiveView.",
+    );
+  }
+
   const syncDomain = domain?.trim() || connection.domain;
   const syncNetworkCode = networkCode?.trim() || connection.networkCode;
   const payload = await getActiveViewReport({
-    apiBaseUrl: connection.apiBaseUrl,
-    reportEndpoint: connection.reportEndpoint,
+    apiBaseUrl,
+    reportEndpoint,
     authToken: decryptToken(connection.authToken),
     dateFrom,
     dateTo,
