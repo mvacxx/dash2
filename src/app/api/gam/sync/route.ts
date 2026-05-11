@@ -20,8 +20,6 @@ const syncGamSchema = z.object({
   dateTo: z.coerce.date({
     invalid_type_error: "Informe uma data final válida.",
   }),
-  domain: optionalString,
-  networkCode: optionalString,
   fieldOne: optionalString,
   valueOne: optionalString,
   fieldTwo: optionalString,
@@ -91,14 +89,12 @@ export async function POST(request: NextRequest) {
       gamConnectionId: parsedBody.data.gamConnectionId,
       dateFrom: startOfUtcDay(parsedBody.data.dateFrom),
       dateTo: endOfUtcDay(parsedBody.data.dateTo),
-      domain: parsedBody.data.domain,
-      networkCode: parsedBody.data.networkCode,
       fieldOne: parsedBody.data.fieldOne,
       valueOne: parsedBody.data.valueOne,
       fieldTwo: parsedBody.data.fieldTwo,
       valueTwo: parsedBody.data.valueTwo,
     });
-    const message = `Sincronização GAM / ActiveView concluída com ${result.count} receita(s).`;
+    const message = result.message;
 
     await prisma.syncLog.update({
       where: {
@@ -129,12 +125,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(
-      { message },
-      {
-        status: message.startsWith("Configure API base URL") ? 400 : 502,
-      },
-    );
+    return NextResponse.json({ message }, { status: 502 });
   }
 }
 

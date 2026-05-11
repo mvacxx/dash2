@@ -3,6 +3,9 @@ import type { Prisma } from "@prisma/client";
 import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
+const defaultActiveViewApiBaseUrl = "https://api.activeview.com.br";
+const defaultActiveViewReportEndpoint = "/reports/activeview";
+
 type ActiveViewReportParams = {
   apiBaseUrl: string;
   reportEndpoint: string;
@@ -23,8 +26,6 @@ type SyncActiveViewRevenueParams = {
   gamConnectionId: string;
   dateFrom: Date;
   dateTo: Date;
-  domain?: string;
-  networkCode?: string;
   fieldOne?: string;
   valueOne?: string;
   fieldTwo?: string;
@@ -50,6 +51,7 @@ export type SyncActiveViewRevenueResult = {
   count: number;
   dateFrom: string;
   dateTo: string;
+  message: string;
 };
 
 export async function getActiveViewReport(params: ActiveViewReportParams) {
@@ -146,11 +148,9 @@ export function normalizeActiveViewResponse(
 export async function syncActiveViewRevenue({
   dateFrom,
   dateTo,
-  domain,
   fieldOne,
   fieldTwo,
   gamConnectionId,
-  networkCode,
   projectId,
   userId,
   valueOne,
@@ -175,17 +175,12 @@ export async function syncActiveViewRevenue({
     throw new Error("Conexão GAM não encontrada para este projeto.");
   }
 
-  const apiBaseUrl = connection.apiBaseUrl?.trim();
-  const reportEndpoint = connection.reportEndpoint?.trim();
-
-  if (!apiBaseUrl || !reportEndpoint) {
-    throw new Error(
-      "Configure API base URL e Report endpoint antes de sincronizar GAM / ActiveView.",
-    );
-  }
-
-  const syncDomain = domain?.trim() || connection.domain;
-  const syncNetworkCode = networkCode?.trim() || connection.networkCode;
+  const apiBaseUrl =
+    connection.apiBaseUrl?.trim() || defaultActiveViewApiBaseUrl;
+  const reportEndpoint =
+    connection.reportEndpoint?.trim() || defaultActiveViewReportEndpoint;
+  const syncDomain = connection.domain;
+  const syncNetworkCode = connection.networkCode;
   const payload = await getActiveViewReport({
     apiBaseUrl,
     reportEndpoint,
@@ -194,10 +189,10 @@ export async function syncActiveViewRevenue({
     dateTo,
     domain: syncDomain,
     networkCode: syncNetworkCode,
-    fieldOne,
-    valueOne,
-    fieldTwo,
-    valueTwo,
+    fieldOne: normalizeFilterValue(fieldOne),
+    valueOne: normalizeFilterValue(valueOne),
+    fieldTwo: normalizeFilterValue(fieldTwo),
+    valueTwo: normalizeFilterValue(valueTwo),
   });
   const revenueRows = normalizeActiveViewResponse(payload, {
     dateFrom,
@@ -260,6 +255,10 @@ export async function syncActiveViewRevenue({
     count,
     dateFrom: dateFrom.toISOString(),
     dateTo: dateTo.toISOString(),
+    message:
+      count > 0
+        ? "Receita sincronizada com sucesso"
+        : "Nenhuma receita encontrada para o período",
   };
 }
 
@@ -286,23 +285,40 @@ function buildReportUrl({
   url.searchParams.set("domain", domain);
   url.searchParams.set("networkCode", networkCode);
 
-  if (fieldOne) {
-    url.searchParams.set("fieldOne", fieldOne);
+  const firstFilter = buildFilterPair(fieldOne, valueOne);
+  const secondFilter = buildFilterPair(fieldTwo, valueTwo);
+
+  if (firstFilter) {
+    url.searchParams.set("fieldOne", firstFilter.field);
+    url.searchParams.set("valueOne", firstFilter.value);
   }
 
-  if (valueOne) {
-    url.searchParams.set("valueOne", valueOne);
-  }
-
-  if (fieldTwo) {
-    url.searchParams.set("fieldTwo", fieldTwo);
-  }
-
-  if (valueTwo) {
-    url.searchParams.set("valueTwo", valueTwo);
+  if (secondFilter) {
+    url.searchParams.set("fieldTwo", secondFilter.field);
+    url.searchParams.set("valueTwo", secondFilter.value);
   }
 
   return url.toString();
+}
+
+function buildFilterPair(field?: string, value?: string) {
+  const normalizedField = normalizeFilterValue(field);
+  const normalizedValue = normalizeFilterValue(value);
+
+  if (!normalizedField || !normalizedValue) {
+    return null;
+  }
+
+  return {
+    field: normalizedField,
+    value: normalizedValue,
+  };
+}
+
+function normalizeFilterValue(value?: string) {
+  const trimmedValue = value?.trim();
+
+  return trimmedValue || undefined;
 }
 
 function extractRows(payload: unknown): Record<string, unknown>[] {

@@ -39,6 +39,7 @@ type ApiResponse = {
   message?: string;
   result?: {
     count: number;
+    message?: string;
   };
 };
 
@@ -191,10 +192,6 @@ export function GamConnectionsManager({
       gamConnectionId: connection.id,
       dateFrom: String(formData.get("dateFrom") ?? ""),
       dateTo: String(formData.get("dateTo") ?? ""),
-      domain: String(formData.get("domain") ?? connection.domain),
-      networkCode: String(
-        formData.get("networkCode") ?? connection.networkCode,
-      ),
       fieldOne: String(formData.get("fieldOne") ?? ""),
       valueOne: String(formData.get("valueOne") ?? ""),
       fieldTwo: String(formData.get("fieldTwo") ?? ""),
@@ -222,7 +219,7 @@ export function GamConnectionsManager({
       }
 
       setSyncSuccess(
-        `${data?.result?.count ?? 0} linha(s) de receita sincronizada(s) com sucesso.`,
+        data?.result?.message ?? "Receita sincronizada com sucesso",
       );
       setSyncingConnectionId(null);
       router.refresh();
@@ -409,49 +406,46 @@ export function GamConnectionsManager({
                               type="date"
                             />
                           </label>
-                          <input
-                            name="domain"
-                            type="hidden"
-                            value={connection.domain}
-                          />
-                          <input
-                            name="networkCode"
-                            type="hidden"
-                            value={connection.networkCode}
-                          />
-                          <label className="text-xs text-slate-400">
-                            Campo 1
-                            <Input
-                              name="fieldOne"
-                              placeholder="utm_campaign"
-                              type="text"
-                            />
-                          </label>
-                          <label className="text-xs text-slate-400">
-                            Valor 1
-                            <Input
-                              name="valueOne"
-                              placeholder="opcional"
-                              type="text"
-                            />
-                          </label>
-                          <label className="text-xs text-slate-400">
-                            Campo 2
-                            <Input
-                              name="fieldTwo"
-                              placeholder="ad_id"
-                              type="text"
-                            />
-                          </label>
-                          <label className="text-xs text-slate-400">
-                            Valor 2
-                            <Input
-                              name="valueTwo"
-                              placeholder="opcional"
-                              type="text"
-                            />
-                          </label>
                         </div>
+                        <details className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            Filtros avançados
+                          </summary>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <label className="text-xs text-slate-400">
+                              Campo 1
+                              <Input
+                                name="fieldOne"
+                                placeholder="utm_campaign"
+                                type="text"
+                              />
+                            </label>
+                            <label className="text-xs text-slate-400">
+                              Valor 1
+                              <Input
+                                name="valueOne"
+                                placeholder="opcional"
+                                type="text"
+                              />
+                            </label>
+                            <label className="text-xs text-slate-400">
+                              Campo 2
+                              <Input
+                                name="fieldTwo"
+                                placeholder="ad_id"
+                                type="text"
+                              />
+                            </label>
+                            <label className="text-xs text-slate-400">
+                              Valor 2
+                              <Input
+                                name="valueTwo"
+                                placeholder="opcional"
+                                type="text"
+                              />
+                            </label>
+                          </div>
+                        </details>
                         <Button
                           className="mt-3 w-full"
                           disabled={
