@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Edit3, Plus, Trash2, X } from "lucide-react";
+import { Edit3, Plus, RefreshCw, Trash2, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,9 @@ type GamConnectionsManagerProps = {
 
 type ApiResponse = {
   message?: string;
+  result?: {
+    count: number;
+  };
 };
 
 export function GamConnectionsManager({
@@ -46,13 +49,22 @@ export function GamConnectionsManager({
 }: GamConnectionsManagerProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [editingConnectionId, setEditingConnectionId] = useState<string | null>(null);
-  const [deletingConnectionId, setDeletingConnectionId] = useState<string | null>(null);
+  const [editingConnectionId, setEditingConnectionId] = useState<string | null>(
+    null,
+  );
+  const [deletingConnectionId, setDeletingConnectionId] = useState<
+    string | null
+  >(null);
+  const [syncingConnectionId, setSyncingConnectionId] = useState<string | null>(
+    null,
+  );
+  const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId),
     [projects, selectedProjectId],
   );
+  const defaultSyncDateRange = useMemo(() => getDefaultDateRange(), []);
 
   function handleProjectChange(projectId: string) {
     router.push(`/dashboard/gam?projectId=${projectId}`);
@@ -60,7 +72,9 @@ export function GamConnectionsManager({
 
   function resetCreateForm(form: HTMLFormElement) {
     form.reset();
-    const projectInput = form.elements.namedItem("projectId") as HTMLInputElement | null;
+    const projectInput = form.elements.namedItem(
+      "projectId",
+    ) as HTMLInputElement | null;
 
     if (projectInput) {
       projectInput.value = selectedProjectId;
@@ -82,7 +96,9 @@ export function GamConnectionsManager({
         },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json().catch(() => null)) as ApiResponse | null;
+      const data = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
         setError(data?.message ?? "Não foi possível criar a conexão GAM.");
@@ -94,11 +110,18 @@ export function GamConnectionsManager({
     });
   }
 
-  async function handleUpdate(event: FormEvent<HTMLFormElement>, connectionId: string) {
+  async function handleUpdate(
+    event: FormEvent<HTMLFormElement>,
+    connectionId: string,
+  ) {
     event.preventDefault();
     setError(null);
 
-    const payload = buildPayload(new FormData(event.currentTarget), selectedProjectId, false);
+    const payload = buildPayload(
+      new FormData(event.currentTarget),
+      selectedProjectId,
+      false,
+    );
 
     startTransition(async () => {
       const response = await fetch(`/api/gam/connections/${connectionId}`, {
@@ -108,7 +131,9 @@ export function GamConnectionsManager({
         },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json().catch(() => null)) as ApiResponse | null;
+      const data = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
         setError(data?.message ?? "Não foi possível atualizar a conexão GAM.");
@@ -121,7 +146,9 @@ export function GamConnectionsManager({
   }
 
   function handleDelete(connectionId: string) {
-    const confirmed = window.confirm("Tem certeza que deseja remover esta conexão GAM?");
+    const confirmed = window.confirm(
+      "Tem certeza que deseja remover esta conexão GAM?",
+    );
 
     if (!confirmed) {
       return;
@@ -134,7 +161,9 @@ export function GamConnectionsManager({
       const response = await fetch(`/api/gam/connections/${connectionId}`, {
         method: "DELETE",
       });
-      const data = (await response.json().catch(() => null)) as ApiResponse | null;
+      const data = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
         setError(data?.message ?? "Não foi possível remover a conexão GAM.");
@@ -147,6 +176,59 @@ export function GamConnectionsManager({
     });
   }
 
+  async function handleSync(
+    event: FormEvent<HTMLFormElement>,
+    connection: GamConnection,
+  ) {
+    event.preventDefault();
+    setError(null);
+    setSyncSuccess(null);
+    setSyncingConnectionId(connection.id);
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      projectId: selectedProjectId,
+      gamConnectionId: connection.id,
+      dateFrom: String(formData.get("dateFrom") ?? ""),
+      dateTo: String(formData.get("dateTo") ?? ""),
+      domain: String(formData.get("domain") ?? connection.domain),
+      networkCode: String(
+        formData.get("networkCode") ?? connection.networkCode,
+      ),
+      fieldOne: String(formData.get("fieldOne") ?? ""),
+      valueOne: String(formData.get("valueOne") ?? ""),
+      fieldTwo: String(formData.get("fieldTwo") ?? ""),
+      valueTwo: String(formData.get("valueTwo") ?? ""),
+    };
+
+    startTransition(async () => {
+      const response = await fetch("/api/gam/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = (await response
+        .json()
+        .catch(() => null)) as ApiResponse | null;
+
+      if (!response.ok) {
+        setError(
+          data?.message ?? "Não foi possível sincronizar o relatório GAM.",
+        );
+        setSyncingConnectionId(null);
+        return;
+      }
+
+      setSyncSuccess(
+        `${data?.result?.count ?? 0} linha(s) de receita sincronizada(s) com sucesso.`,
+      );
+      setSyncingConnectionId(null);
+      router.refresh();
+    });
+  }
+
   return (
     <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
       <section className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl shadow-slate-950/20">
@@ -155,10 +237,14 @@ export function GamConnectionsManager({
           {selectedProject?.name ?? "Selecione um projeto"}
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          {selectedProject?.domain ?? "As conexões GAM / ActiveView serão vinculadas ao projeto escolhido."}
+          {selectedProject?.domain ??
+            "As conexões GAM / ActiveView serão vinculadas ao projeto escolhido."}
         </p>
 
-        <label className="mt-6 block text-sm font-medium text-slate-200" htmlFor="gamProjectSelector">
+        <label
+          className="mt-6 block text-sm font-medium text-slate-200"
+          htmlFor="gamProjectSelector"
+        >
           Projeto
         </label>
         <select
@@ -175,14 +261,23 @@ export function GamConnectionsManager({
         </select>
 
         <form className="mt-6 space-y-5" onSubmit={handleCreate}>
-          <input readOnly name="projectId" type="hidden" value={selectedProjectId} />
+          <input
+            readOnly
+            name="projectId"
+            type="hidden"
+            value={selectedProjectId}
+          />
           <GamConnectionFields mode="create" />
           {error ? (
             <div className="rounded-2xl border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
               {error}
             </div>
           ) : null}
-          <Button className="w-full" disabled={isPending || !selectedProjectId} type="submit">
+          <Button
+            className="w-full"
+            disabled={isPending || !selectedProjectId}
+            type="submit"
+          >
             <Plus size={18} />
             {isPending ? "Salvando..." : "Cadastrar conexão"}
           </Button>
@@ -192,21 +287,37 @@ export function GamConnectionsManager({
       <section className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl shadow-slate-950/20">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
           <div>
-            <p className="text-sm font-medium text-slate-400">Conexões cadastradas</p>
+            <p className="text-sm font-medium text-slate-400">
+              Conexões cadastradas
+            </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
-              {connections.length} {connections.length === 1 ? "conexão" : "conexões"}
+              {connections.length}{" "}
+              {connections.length === 1 ? "conexão" : "conexões"}
             </h2>
           </div>
-          <Badge>Sem sincronização</Badge>
+          <Badge variant="success">Sincronização disponível</Badge>
         </div>
 
         <div className="mt-6 space-y-4">
+          {syncSuccess ? (
+            <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+              {syncSuccess}
+            </div>
+          ) : null}
+          {error ? (
+            <div className="rounded-2xl border border-red-300/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+              {error}
+            </div>
+          ) : null}
+
           {connections.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.03] p-8 text-center">
-              <h3 className="text-xl font-semibold text-white">Nenhuma conexão GAM cadastrada</h3>
+              <h3 className="text-xl font-semibold text-white">
+                Nenhuma conexão GAM cadastrada
+              </h3>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-400">
-                Cadastre uma conexão para preparar relatórios ActiveView/GAM futuros.
-                Nenhuma sincronização será executada nesta etapa.
+                Cadastre uma conexão para sincronizar relatórios ActiveView/GAM
+                reais ou inserir receita manual.
               </p>
             </div>
           ) : (
@@ -220,10 +331,19 @@ export function GamConnectionsManager({
                     className="space-y-5"
                     onSubmit={(event) => handleUpdate(event, connection.id)}
                   >
-                    <input readOnly name="projectId" type="hidden" value={selectedProjectId} />
+                    <input
+                      readOnly
+                      name="projectId"
+                      type="hidden"
+                      value={selectedProjectId}
+                    />
                     <GamConnectionFields connection={connection} mode="edit" />
                     <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                      <Button onClick={() => setEditingConnectionId(null)} type="button" variant="ghost">
+                      <Button
+                        onClick={() => setEditingConnectionId(null)}
+                        type="button"
+                        variant="ghost"
+                      >
                         <X size={18} />
                         Cancelar
                       </Button>
@@ -244,25 +364,127 @@ export function GamConnectionsManager({
                       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                         <GamInfo label="Domínio" value={connection.domain} />
                         <GamInfo label="Token" value={connection.authToken} />
-                        <GamInfo label="API base" value={connection.apiBaseUrl} />
-                        <GamInfo label="Endpoint" value={connection.reportEndpoint} />
-                        <GamInfo label="Projeto" value={connection.project.name} />
-                        <GamInfo label="Site" value={connection.project.domain} />
+                        <GamInfo
+                          label="API base"
+                          value={connection.apiBaseUrl}
+                        />
+                        <GamInfo
+                          label="Endpoint"
+                          value={connection.reportEndpoint}
+                        />
+                        <GamInfo
+                          label="Projeto"
+                          value={connection.project.name}
+                        />
+                        <GamInfo
+                          label="Site"
+                          value={connection.project.domain}
+                        />
                       </dl>
                     </div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => setEditingConnectionId(connection.id)} variant="secondary">
-                        <Edit3 size={18} />
-                        Editar
-                      </Button>
-                      <Button
-                        disabled={deletingConnectionId === connection.id}
-                        onClick={() => handleDelete(connection.id)}
-                        variant="danger"
+                    <div className="flex flex-col gap-3 lg:min-w-80">
+                      <form
+                        className="rounded-2xl border border-white/10 bg-slate-950/50 p-3"
+                        onSubmit={(event) => handleSync(event, connection)}
                       >
-                        <Trash2 size={18} />
-                        {deletingConnectionId === connection.id ? "Removendo..." : "Remover"}
-                      </Button>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Sincronizar receita
+                        </p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          <label className="text-xs text-slate-400">
+                            De
+                            <Input
+                              defaultValue={defaultSyncDateRange.dateFrom}
+                              name="dateFrom"
+                              required
+                              type="date"
+                            />
+                          </label>
+                          <label className="text-xs text-slate-400">
+                            Até
+                            <Input
+                              defaultValue={defaultSyncDateRange.dateTo}
+                              name="dateTo"
+                              required
+                              type="date"
+                            />
+                          </label>
+                          <input
+                            name="domain"
+                            type="hidden"
+                            value={connection.domain}
+                          />
+                          <input
+                            name="networkCode"
+                            type="hidden"
+                            value={connection.networkCode}
+                          />
+                          <label className="text-xs text-slate-400">
+                            Campo 1
+                            <Input
+                              name="fieldOne"
+                              placeholder="utm_campaign"
+                              type="text"
+                            />
+                          </label>
+                          <label className="text-xs text-slate-400">
+                            Valor 1
+                            <Input
+                              name="valueOne"
+                              placeholder="opcional"
+                              type="text"
+                            />
+                          </label>
+                          <label className="text-xs text-slate-400">
+                            Campo 2
+                            <Input
+                              name="fieldTwo"
+                              placeholder="ad_id"
+                              type="text"
+                            />
+                          </label>
+                          <label className="text-xs text-slate-400">
+                            Valor 2
+                            <Input
+                              name="valueTwo"
+                              placeholder="opcional"
+                              type="text"
+                            />
+                          </label>
+                        </div>
+                        <Button
+                          className="mt-3 w-full"
+                          disabled={
+                            isPending || syncingConnectionId === connection.id
+                          }
+                          type="submit"
+                          variant="secondary"
+                        >
+                          <RefreshCw size={18} />
+                          {syncingConnectionId === connection.id
+                            ? "Sincronizando..."
+                            : "Sincronizar"}
+                        </Button>
+                      </form>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => setEditingConnectionId(connection.id)}
+                          variant="secondary"
+                        >
+                          <Edit3 size={18} />
+                          Editar
+                        </Button>
+                        <Button
+                          disabled={deletingConnectionId === connection.id}
+                          onClick={() => handleDelete(connection.id)}
+                          variant="danger"
+                        >
+                          <Trash2 size={18} />
+                          {deletingConnectionId === connection.id
+                            ? "Removendo..."
+                            : "Remover"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -275,7 +497,11 @@ export function GamConnectionsManager({
   );
 }
 
-function buildPayload(formData: FormData, fallbackProjectId: string, includeEmptyToken: boolean) {
+function buildPayload(
+  formData: FormData,
+  fallbackProjectId: string,
+  includeEmptyToken: boolean,
+) {
   const authToken = String(formData.get("authToken") ?? "").trim();
 
   return {
@@ -298,7 +524,10 @@ function GamConnectionFields({
   return (
     <div className="grid gap-5 md:grid-cols-2">
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-networkCode`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-networkCode`}
+        >
           Network code
         </label>
         <Input
@@ -312,7 +541,10 @@ function GamConnectionFields({
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-domain`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-domain`}
+        >
           Domínio
         </label>
         <Input
@@ -326,7 +558,10 @@ function GamConnectionFields({
       </div>
 
       <div className="md:col-span-2">
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-authToken`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-authToken`}
+        >
           Auth token Bearer
         </label>
         <Input
@@ -334,16 +569,24 @@ function GamConnectionFields({
           autoComplete="off"
           id={`${mode}-authToken`}
           name="authToken"
-          placeholder={mode === "create" ? "Bearer token" : "Deixe em branco para manter o token atual"}
+          placeholder={
+            mode === "create"
+              ? "Bearer token"
+              : "Deixe em branco para manter o token atual"
+          }
           type="password"
         />
         <p className="mt-2 text-xs text-slate-500">
-          O token é criptografado antes de ser salvo e nunca é exibido novamente.
+          O token é criptografado antes de ser salvo e nunca é exibido
+          novamente.
         </p>
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-apiBaseUrl`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-apiBaseUrl`}
+        >
           API base URL
         </label>
         <Input
@@ -357,7 +600,10 @@ function GamConnectionFields({
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor={`${mode}-reportEndpoint`}>
+        <label
+          className="mb-2 block text-sm font-medium text-slate-200"
+          htmlFor={`${mode}-reportEndpoint`}
+        >
           Report endpoint
         </label>
         <Input
@@ -373,11 +619,28 @@ function GamConnectionFields({
   );
 }
 
+function getDefaultDateRange() {
+  const dateTo = new Date();
+  const dateFrom = new Date();
+  dateFrom.setUTCDate(dateTo.getUTCDate() - 7);
+
+  return {
+    dateFrom: dateFrom.toISOString().slice(0, 10),
+    dateTo: dateTo.toISOString().slice(0, 10),
+  };
+}
+
 function GamInfo({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-slate-950/60 p-3">
       <dt className="text-slate-500">{label}</dt>
-      <dd className={label === "Token" ? "mt-1 truncate font-semibold tracking-[0.25em] text-slate-200" : "mt-1 truncate font-semibold text-slate-200"}>
+      <dd
+        className={
+          label === "Token"
+            ? "mt-1 truncate font-semibold tracking-[0.25em] text-slate-200"
+            : "mt-1 truncate font-semibold text-slate-200"
+        }
+      >
         {label === "Token" ? maskedToken : value}
       </dd>
     </div>

@@ -37,7 +37,9 @@ export default async function GamPage({ searchParams }: GamPageProps) {
       domain: true,
     },
   });
-  const selectedProjectId = projects.some((project) => project.id === params?.projectId)
+  const selectedProjectId = projects.some(
+    (project) => project.id === params?.projectId,
+  )
     ? params?.projectId
     : projects[0]?.id;
 
@@ -61,12 +63,14 @@ export default async function GamPage({ searchParams }: GamPageProps) {
         },
       })
     : [];
-  const safeConnections = connections.map(({ authToken: _authToken, ...connection }) => ({
-    ...connection,
-    authToken: "********",
-    createdAt: connection.createdAt.toISOString(),
-    updatedAt: connection.updatedAt.toISOString(),
-  }));
+  const safeConnections = connections.map(
+    ({ authToken: _authToken, ...connection }) => ({
+      ...connection,
+      authToken: "********",
+      createdAt: connection.createdAt.toISOString(),
+      updatedAt: connection.updatedAt.toISOString(),
+    }),
+  );
 
   return (
     <PageContainer>
@@ -77,8 +81,8 @@ export default async function GamPage({ searchParams }: GamPageProps) {
             Conexões GAM / ActiveView
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Cadastre a conexão ActiveView/GAM por projeto. Esta etapa apenas
-            guarda credenciais e endpoints com segurança; nenhuma sincronização é executada.
+            Cadastre a conexão ActiveView/GAM por projeto, guarde credenciais
+            com segurança e sincronize receitas reais para alimentar o ROI.
           </p>
         </div>
       </div>

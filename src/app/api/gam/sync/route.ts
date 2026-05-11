@@ -1,19 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
+import { syncActiveViewRevenue } from "@/lib/activeview";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { syncMetaInsights } from "@/lib/meta";
 
-const syncMetaSchema = z.object({
+const optionalString = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value: string | undefined) => (value ? value : undefined));
+
+const syncGamSchema = z.object({
   projectId: z.string().min(1, "Selecione um projeto."),
-  metaAccountId: z.string().min(1, "Selecione uma conta Meta Ads."),
+  gamConnectionId: z.string().min(1, "Selecione uma conexão GAM."),
   dateFrom: z.coerce.date({
     invalid_type_error: "Informe uma data inicial válida.",
   }),
   dateTo: z.coerce.date({
     invalid_type_error: "Informe uma data final válida.",
   }),
+  domain: optionalString,
+  networkCode: optionalString,
+  fieldOne: optionalString,
+  valueOne: optionalString,
+  fieldTwo: optionalString,
+  valueTwo: optionalString,
 });
 
 export async function POST(request: NextRequest) {
@@ -25,7 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsedBody = syncMetaSchema.safeParse(body);
+  const parsedBody = syncGamSchema.safeParse(body);
 
   if (!parsedBody.success) {
     return NextResponse.json(
@@ -41,29 +53,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const metaAccount = await prisma.metaAccount.findFirst({
+  const connection = await prisma.gamConnection.findFirst({
     where: {
-      id: parsedBody.data.metaAccountId,
+      id: parsedBody.data.gamConnectionId,
       projectId: parsedBody.data.projectId,
       userId,
     },
     select: {
       id: true,
-      connectionType: true,
     },
   });
 
-  if (!metaAccount) {
+  if (!connection) {
     return NextResponse.json(
-      { message: "Conta Meta Ads não encontrada para este projeto." },
+      { message: "Conexão GAM não encontrada para este projeto." },
       { status: 404 },
-    );
-  }
-
-  if (metaAccount.connectionType !== "META_API") {
-    return NextResponse.json(
-      { message: "Esta conta está configurada como manual." },
-      { status: 400 },
     );
   }
 
@@ -71,9 +75,9 @@ export async function POST(request: NextRequest) {
     data: {
       userId,
       projectId: parsedBody.data.projectId,
-      source: "META",
+      source: "ACTIVEVIEW",
       status: "RUNNING",
-      message: "Sincronização Meta Ads iniciada.",
+      message: "Sincronização GAM / ActiveView iniciada.",
     },
     select: {
       id: true,
@@ -81,14 +85,20 @@ export async function POST(request: NextRequest) {
   });
 
   try {
-    const result = await syncMetaInsights({
+    const result = await syncActiveViewRevenue({
       userId,
       projectId: parsedBody.data.projectId,
-      metaAccountId: parsedBody.data.metaAccountId,
+      gamConnectionId: parsedBody.data.gamConnectionId,
       dateFrom: startOfUtcDay(parsedBody.data.dateFrom),
       dateTo: endOfUtcDay(parsedBody.data.dateTo),
+      domain: parsedBody.data.domain,
+      networkCode: parsedBody.data.networkCode,
+      fieldOne: parsedBody.data.fieldOne,
+      valueOne: parsedBody.data.valueOne,
+      fieldTwo: parsedBody.data.fieldTwo,
+      valueTwo: parsedBody.data.valueTwo,
     });
-    const message = `Sincronização Meta Ads concluída com ${result.count} insight(s).`;
+    const message = `Sincronização GAM / ActiveView concluída com ${result.count} receita(s).`;
 
     await prisma.syncLog.update({
       where: {
@@ -106,7 +116,7 @@ export async function POST(request: NextRequest) {
     const message =
       error instanceof Error
         ? error.message
-        : "Não foi possível sincronizar a Meta Ads API.";
+        : "Não foi possível sincronizar o relatório GAM.";
 
     await prisma.syncLog.update({
       where: {

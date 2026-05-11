@@ -8,6 +8,7 @@ import {
   Database,
   Building2,
   ChartNoAxesCombined,
+  ClipboardList,
   Gauge,
   LayoutDashboard,
   Map,
@@ -75,6 +76,11 @@ const sidebarItems: SidebarItem[] = [
     icon: ChartNoAxesCombined,
   },
   {
+    label: "Sync logs",
+    href: "/dashboard/sync-logs",
+    icon: ClipboardList,
+  },
+  {
     label: "Configurações",
     href: "/dashboard/configuracoes",
     icon: Settings,
@@ -134,6 +140,7 @@ export function Sidebar() {
     "/dashboard/tracking-builder",
   );
   const isRoiActive = pathname.startsWith("/dashboard/roi");
+  const isSyncLogsActive = pathname.startsWith("/dashboard/sync-logs");
 
   return (
     <>
@@ -255,6 +262,18 @@ export function Sidebar() {
           >
             <ChartNoAxesCombined size={18} />
             ROI
+          </Link>
+          <Link
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium",
+              isSyncLogsActive
+                ? "bg-indigo-400/10 text-indigo-100"
+                : "text-slate-300",
+            )}
+            href="/dashboard/sync-logs"
+          >
+            <ClipboardList size={18} />
+            Logs
           </Link>
           <LogoutButton compact />
         </div>
