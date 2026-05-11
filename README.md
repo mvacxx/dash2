@@ -23,7 +23,7 @@ Base limpa para um SaaS multiusuário que compara gasto de campanhas Meta Ads co
 - npm
 - PostgreSQL disponível localmente ou em um provedor externo
 
-## Configuração
+## Instalação local
 
 1. Instale as dependências:
 
@@ -31,47 +31,127 @@ Base limpa para um SaaS multiusuário que compara gasto de campanhas Meta Ads co
    npm install
    ```
 
-2. Crie o arquivo de ambiente:
+2. Copie o arquivo de exemplo e configure as variáveis de ambiente:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Ajuste as variáveis no `.env`:
+3. Ajuste o `.env` com os dados do seu ambiente:
 
    ```env
    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dashzada_roi?schema=public"
-   AUTH_SECRET="replace-with-a-secure-random-secret"
-   AUTH_URL="http://localhost:3000"
+   NEXTAUTH_SECRET="replace-with-a-secure-random-secret"
+   NEXTAUTH_URL="http://localhost:3000"
    TOKEN_ENCRYPTION_KEY="replace-with-a-token-encryption-secret"
    FACEBOOK_GRAPH_VERSION="v20.0"
    ```
 
-4. Gere o Prisma Client:
+   Gere `NEXTAUTH_SECRET` e `TOKEN_ENCRYPTION_KEY` com:
 
    ```bash
-   npx prisma generate
+   openssl rand -base64 32
    ```
 
-5. Rode a primeira migration:
+4. Rode as migrations locais e gere o Prisma Client:
 
    ```bash
    npx prisma migrate dev
    ```
 
-6. Valide o build:
+   O projeto também executa `prisma generate` no `postinstall` e antes do build de produção para manter o Prisma Client atualizado.
 
-   ```bash
-   npm run build
-   ```
-
-7. Inicie o ambiente de desenvolvimento:
+5. Inicie o ambiente de desenvolvimento:
 
    ```bash
    npm run dev
    ```
 
 O app ficará disponível em `http://localhost:3000`.
+
+## Build de produção
+
+1. Garanta que o `.env` de produção contém `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `TOKEN_ENCRYPTION_KEY` e `FACEBOOK_GRAPH_VERSION`.
+
+2. Aplique migrations no banco de produção:
+
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+3. Gere o build sem `ignoreBuildErrors`:
+
+   ```bash
+   npm run build
+   ```
+
+4. Suba o servidor Next.js:
+
+   ```bash
+   npm run start
+   ```
+
+## Deploy em VPS com PM2 e Nginx
+
+Exemplo de fluxo para uma VPS Linux com Node.js, PostgreSQL, PM2 e Nginx instalados:
+
+1. Clone o repositório e instale dependências:
+
+   ```bash
+   git clone <repo-url> dashzada-roi
+   cd dashzada-roi
+   npm install
+   ```
+
+2. Crie o `.env` de produção a partir do exemplo e ajuste `NEXTAUTH_URL` para o domínio público:
+
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+
+3. Aplique migrations e gere o build:
+
+   ```bash
+   npx prisma migrate deploy
+   npm run build
+   ```
+
+4. Inicie com PM2 na porta padrão do Next.js (`3000`):
+
+   ```bash
+   pm2 start npm --name dashzada-roi -- run start
+   pm2 save
+   pm2 startup
+   ```
+
+5. Configure o Nginx como proxy reverso para `127.0.0.1:3000`:
+
+   ```nginx
+   server {
+     server_name app.seu-dominio.com;
+
+     location / {
+       proxy_pass http://127.0.0.1:3000;
+       proxy_http_version 1.1;
+       proxy_set_header Host $host;
+       proxy_set_header X-Real-IP $remote_addr;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+     }
+   }
+   ```
+
+6. Valide e recarregue o Nginx:
+
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+7. Em produção com HTTPS, emita certificado TLS (por exemplo, Certbot) e mantenha `NEXTAUTH_URL` com `https://`.
 
 ## Estrutura inicial
 

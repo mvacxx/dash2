@@ -5,12 +5,15 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
+const authSecret = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET;
+
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
 
 export const authConfig = {
+  secret: authSecret,
   pages: {
     signIn: "/login",
   },

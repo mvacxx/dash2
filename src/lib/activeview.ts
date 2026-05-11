@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
@@ -223,7 +225,7 @@ export async function syncActiveViewRevenue({
       views: row.views,
       rpm: row.rpm,
       currency: row.currency,
-      rawJson: row.rawJson as never,
+      rawJson: row.rawJson as Prisma.InputJsonValue,
     };
 
     if (existingRevenue) {

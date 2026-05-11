@@ -24,3 +24,6 @@ pnpm-debug.log*
 
 # prisma
 prisma/dev.db
+
+# Optional: ignore npm lockfile if deployment generates it on target host
+package-lock.json
