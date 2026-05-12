@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { syncGamRevenue } from "@/services/gam-auto-sync";
 
 const triggerSyncSchema = z
@@ -9,6 +10,7 @@ const triggerSyncSchema = z
     dateFrom: z.coerce.date().optional(),
     dateTo: z.coerce.date().optional(),
     force: z.boolean().optional().default(true),
+    projectId: z.string().min(1).optional(),
   })
   .optional();
 
@@ -30,7 +32,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { dateFrom, dateTo, force } = parsedBody.data ?? { force: true };
+  const { dateFrom, dateTo, force, projectId } = parsedBody.data ?? {
+    force: true,
+  };
 
   if (dateFrom && dateTo && dateFrom > dateTo) {
     return NextResponse.json(
@@ -39,10 +43,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const connectionsCount = await prisma.gamConnection.count({
+    where: {
+      userId,
+      ...(projectId ? { projectId } : {}),
+    },
+  });
+
+  console.log("[SYNC TRIGGER]", {
+    projectId,
+    dateFrom: dateFrom ? toDateInputValue(dateFrom) : undefined,
+    dateTo: dateTo ? toDateInputValue(dateTo) : undefined,
+    connectionsCount,
+  });
+
   const result = await syncGamRevenue({
     dateFrom,
     dateTo,
     force,
+    projectId,
     userId,
   });
 
@@ -59,4 +78,8 @@ export async function POST(request: NextRequest) {
         : "Sincronização concluída com sucesso."),
     result,
   });
+}
+
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
 }

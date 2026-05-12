@@ -57,6 +57,8 @@ export default async function GamSyncDebugPage() {
       },
     }),
   ]);
+  const debugDetails = parseSyncDebugMessage(lastSync?.message);
+  const firstResponseRow = sampleRows[0]?.rawJson;
 
   return (
     <PageContainer>
@@ -79,6 +81,15 @@ export default async function GamSyncDebugPage() {
           />
           <DebugCard label="Status" value={lastSync?.status ?? "Sem sync"} />
           <DebugCard label="Rows locais" value={String(rowCount)} />
+          <DebugCard label="URL chamada" value={debugDetails.url ?? "—"} />
+          <DebugCard
+            label="Status HTTP"
+            value={debugDetails.httpStatus ?? "—"}
+          />
+          <DebugCard
+            label="Rows retornadas"
+            value={debugDetails.rowsReceived ?? "0"}
+          />
         </section>
 
         {lastSync?.message ? (
@@ -93,6 +104,18 @@ export default async function GamSyncDebugPage() {
                 Finalizada em {formatDateTime(lastSync.finishedAt)}
               </p>
             ) : null}
+          </section>
+        ) : null}
+
+        {firstResponseRow ? (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-sm text-slate-300">
+            <div className="mb-3 flex items-center gap-2 text-white">
+              <Bug size={18} />
+              <h2 className="font-semibold">Primeira linha da response</h2>
+            </div>
+            <pre className="max-h-80 overflow-auto rounded-2xl border border-white/10 bg-black/30 p-4 text-xs leading-5 text-slate-300">
+              {JSON.stringify(firstResponseRow, null, 2)}
+            </pre>
           </section>
         ) : null}
 
@@ -171,4 +194,24 @@ function formatDateTime(date: Date) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(date);
+}
+
+function parseSyncDebugMessage(message?: string | null) {
+  if (!message) {
+    return {
+      httpStatus: null,
+      rowsReceived: null,
+      url: null,
+    };
+  }
+
+  return {
+    httpStatus: matchDebugValue(message, /HTTP status: ([^.]+)\./),
+    rowsReceived: matchDebugValue(message, /Rows received: ([^.]+)\./),
+    url: matchDebugValue(message, /URL: (.*?)\. API payload sample:/),
+  };
+}
+
+function matchDebugValue(message: string, pattern: RegExp) {
+  return message.match(pattern)?.[1] ?? null;
 }

@@ -34,6 +34,7 @@ type SyncGamRevenueParams = {
   dateFrom?: Date;
   dateTo?: Date;
   force?: boolean;
+  projectId?: string;
   userId: string;
 };
 
@@ -71,7 +72,7 @@ type ActiveViewFetchResult = {
   json: unknown;
   payloadSample: string;
   rawResponse: string;
-  responseRows: Record<string, unknown>[] | null;
+  responseRows: Record<string, unknown>[];
   status: number;
   url: string;
 };
@@ -91,6 +92,7 @@ export async function syncGamRevenue({
   dateFrom,
   dateTo,
   force = false,
+  projectId,
   userId,
 }: SyncGamRevenueParams): Promise<SyncGamRevenueSummary> {
   const startedAt = Date.now();
@@ -103,6 +105,7 @@ export async function syncGamRevenue({
   const connections = await prisma.gamConnection.findMany({
     where: {
       userId,
+      ...(projectId ? { projectId } : {}),
       ...(force
         ? {}
         : {
@@ -126,6 +129,7 @@ export async function syncGamRevenue({
     : await prisma.gamConnection.count({
         where: {
           userId,
+          ...(projectId ? { projectId } : {}),
           lastSyncedAt: {
             gte: debounceCutoff,
           },
@@ -137,6 +141,7 @@ export async function syncGamRevenue({
     connectionCount: connections.length,
     endDate: toDateInputValue(syncDateTo),
     force,
+    projectId,
     skippedByDebounce: skipped,
     startDate: toDateInputValue(syncDateFrom),
     userId,
@@ -169,12 +174,6 @@ export async function syncGamRevenue({
         networkCode: connection.networkCode,
       });
       const durationMs = Date.now() - connectionStartedAt;
-
-      if (!fetchResult.responseRows) {
-        throw new Error(
-          "Resposta ActiveView inválida: json.response precisa ser um array.",
-        );
-      }
 
       const normalizedRows = fetchResult.responseRows.map((row) =>
         normalizeGamRevenueRow(row, {
@@ -357,10 +356,6 @@ async function fetchActiveViewWithDomainFallback({
     });
     lastResult = result;
 
-    if (!result.responseRows) {
-      return result;
-    }
-
     if (result.responseRows.length > 0) {
       return result;
     }
@@ -393,6 +388,15 @@ async function fetchActiveViewReport({
   networkCode: string;
 }): Promise<ActiveViewFetchResult> {
   const url = buildReportUrl({ dateFrom, dateTo, domain, networkCode });
+  console.log("[ACTIVEVIEW REQUEST]", {
+    url,
+    networkCode,
+    domain,
+    start_date: toDateInputValue(dateFrom),
+    end_date: toDateInputValue(dateTo),
+    authorization: "Bearer ***",
+  });
+
   const response = await fetch(url, {
     cache: "no-store",
     headers: {
@@ -414,6 +418,12 @@ async function fetchActiveViewReport({
     status: response.status,
     url,
   };
+
+  console.log("[ACTIVEVIEW RESPONSE]", {
+    status: response.status,
+    rawResponse,
+    rowsCount: responseRows.length,
+  });
 
   console.info("[GAM Sync] ActiveView full response", {
     headers,
@@ -661,11 +671,12 @@ function getPayloadSample(rawResponse: string) {
 }
 
 function getResponseRows(payload: unknown) {
-  if (!isRecord(payload) || !Array.isArray(payload.response)) {
-    return null;
-  }
+  const rows =
+    isRecord(payload) && Array.isArray(payload.response)
+      ? payload.response
+      : [];
 
-  return payload.response.filter(isRecord);
+  return rows.filter(isRecord);
 }
 
 function parseJsonPayload(rawResponse: string) {

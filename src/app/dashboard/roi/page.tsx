@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageContainer } from "@/components/dashboard/page-container";
 import { RoiPerformanceChart } from "@/components/dashboard/roi-performance-chart";
 import { Badge } from "@/components/ui/badge";
+import { SyncNowButton } from "@/components/gam/sync-now-button";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -165,7 +166,6 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
           </div>
         </section>
 
-
         {projects.length === 0 ? (
           <div className="mt-8">
             <EmptyState
@@ -188,7 +188,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
           <>
             <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30">
               <form
-                className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1.2fr_auto] lg:items-end"
+                className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1.2fr_auto_auto] lg:items-end"
                 method="get"
               >
                 <div>
@@ -258,7 +258,12 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                 >
                   Aplicar filtros
                 </button>
-                <div className="grid gap-4 lg:col-span-4 md:grid-cols-2">
+                <SyncNowButton
+                  dateFrom={selectedRange.dateFrom}
+                  dateTo={selectedRange.dateTo}
+                  projectId={selectedProjectId}
+                />
+                <div className="grid gap-4 lg:col-span-5 md:grid-cols-2">
                   <div>
                     <label
                       className="mb-2 block text-sm font-medium text-slate-200"
