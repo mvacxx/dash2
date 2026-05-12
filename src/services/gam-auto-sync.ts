@@ -166,11 +166,11 @@ export async function syncGamRevenue({
       const bearerToken = normalizeBearerToken(
         decryptToken(connection.authToken),
       );
-      const fetchResult = await fetchActiveViewWithDomainFallback({
+      const fetchResult = await fetchActiveViewReport({
         bearerToken,
         dateFrom: syncDateFrom,
         dateTo: syncDateTo,
-        domain: connection.domain,
+        domain: normalizeActiveViewDomain(connection.domain),
         networkCode: connection.networkCode,
       });
       const durationMs = Date.now() - connectionStartedAt;
@@ -328,50 +328,6 @@ export async function syncGamRevenue({
       synced: results.length,
     }),
   };
-}
-
-async function fetchActiveViewWithDomainFallback({
-  bearerToken,
-  dateFrom,
-  dateTo,
-  domain,
-  networkCode,
-}: {
-  bearerToken: string;
-  dateFrom: Date;
-  dateTo: Date;
-  domain: string;
-  networkCode: string;
-}) {
-  const domains = getDomainFallbacks(domain);
-  let lastResult: ActiveViewFetchResult | null = null;
-
-  for (const attemptedDomain of domains) {
-    const result = await fetchActiveViewReport({
-      bearerToken,
-      dateFrom,
-      dateTo,
-      domain: attemptedDomain,
-      networkCode,
-    });
-    lastResult = result;
-
-    if (result.responseRows.length > 0) {
-      return result;
-    }
-
-    console.warn("[GAM Sync] empty ActiveView response", {
-      headers: result.headers,
-      payload: result.rawResponse,
-      url: result.url,
-    });
-  }
-
-  if (!lastResult) {
-    throw new Error("Nenhum domínio disponível para sincronização ActiveView.");
-  }
-
-  return lastResult;
 }
 
 async function fetchActiveViewReport({
@@ -651,17 +607,11 @@ function buildSyncLogMessage({
   ].join(" ");
 }
 
-function getDomainFallbacks(domain: string) {
-  const normalizedDomain = domain
+function normalizeActiveViewDomain(domain: string) {
+  return domain
     .trim()
     .replace(/^https?:\/\//i, "")
     .replace(/\/$/, "");
-  const withoutWww = normalizedDomain.replace(/^www\./i, "");
-  const withWww = withoutWww.startsWith("www.")
-    ? withoutWww
-    : `www.${withoutWww}`;
-
-  return Array.from(new Set([normalizedDomain, withoutWww, withWww]));
 }
 
 function getPayloadSample(rawResponse: string) {
