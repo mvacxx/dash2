@@ -13,8 +13,10 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { PageContainer } from "@/components/dashboard/page-container";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SyncNowButton } from "@/components/gam/sync-now-button";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { syncGamRevenue } from "@/services/gam-auto-sync";
 
 const baseMetrics = [
   {
@@ -52,6 +54,7 @@ export default async function DashboardPage() {
   const userId = session?.user?.id;
   const firstName =
     session?.user?.name?.split(" ")[0] ?? session?.user?.email ?? "usuário";
+  const autoSyncResult = userId ? await syncGamRevenue({ userId }) : null;
   const projectCount = userId
     ? await prisma.project.count({
         where: {
@@ -59,18 +62,40 @@ export default async function DashboardPage() {
         },
       })
     : 0;
-  const metrics = baseMetrics.map((metric) =>
-    metric.title === "Projetos ativos"
-      ? {
-          ...metric,
-          value: String(projectCount),
-          description:
-            projectCount === 0
-              ? "Nenhum projeto foi criado nesta fundação inicial."
-              : "Projetos criados para receber dados futuros.",
-        }
-      : metric,
-  );
+  const activeViewRevenue = userId
+    ? await prisma.gamRevenueDaily.aggregate({
+        where: {
+          userId,
+        },
+        _sum: {
+          revenue: true,
+        },
+      })
+    : null;
+  const metrics = baseMetrics.map((metric) => {
+    if (metric.title === "Projetos ativos") {
+      return {
+        ...metric,
+        value: String(projectCount),
+        description:
+          projectCount === 0
+            ? "Nenhum projeto foi criado nesta fundação inicial."
+            : "Projetos criados para receber dados futuros.",
+      };
+    }
+
+    if (metric.title === "Receita GAM / ActiveView") {
+      return {
+        ...metric,
+        value: formatCurrency(activeViewRevenue?._sum.revenue ?? 0),
+        description:
+          "Receita lida do banco local após sincronização automática.",
+        badge: "Auto sync",
+      };
+    }
+
+    return metric;
+  });
 
   return (
     <PageContainer>
@@ -95,12 +120,16 @@ export default async function DashboardPage() {
                   Ver ROI por campanha
                 </Button>
               </Link>
-              <Button className="sm:w-auto" type="button" variant="secondary">
-                <DatabaseZap size={18} />
-                Dados manuais disponíveis
-              </Button>
+              <SyncNowButton />
             </div>
           </div>
+          {autoSyncResult ? (
+            <p className="relative z-10 mt-4 text-xs text-slate-400">
+              Sincronização automática: {autoSyncResult.synced} conexão(ões),{" "}
+              {autoSyncResult.rows} linha(s).
+              {autoSyncResult.warning ? ` ${autoSyncResult.warning}` : ""}
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -158,4 +187,11 @@ export default async function DashboardPage() {
       </section>
     </PageContainer>
   );
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    currency: "BRL",
+    style: "currency",
+  }).format(value);
 }

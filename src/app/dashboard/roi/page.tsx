@@ -21,6 +21,7 @@ import { RoiPerformanceChart } from "@/components/dashboard/roi-performance-char
 import { Badge } from "@/components/ui/badge";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { syncGamRevenue } from "@/services/gam-auto-sync";
 import {
   generateCampaignRoiReport,
   type CampaignRoiReportRow,
@@ -75,6 +76,8 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
   if (!userId) {
     redirect("/login?callbackUrl=/dashboard/roi");
   }
+
+  const autoSyncResult = await syncGamRevenue({ userId });
 
   const params = await searchParams;
   const projects = await prisma.project.findMany({
@@ -164,6 +167,13 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
             </div>
           </div>
         </section>
+
+        {autoSyncResult.warning ? (
+          <div className="flex items-center gap-2 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            <AlertTriangle size={16} />
+            {autoSyncResult.warning}
+          </div>
+        ) : null}
 
         {projects.length === 0 ? (
           <div className="mt-8">

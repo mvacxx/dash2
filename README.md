@@ -216,6 +216,19 @@ O modelo `GamConnection` vincula conexões GAM / ActiveView criptografadas ao us
 - `authToken`
 - `createdAt`
 - `updatedAt`
+- `lastSyncedAt`
+
+O modelo `GamRevenueDaily` consolida receita diária sincronizada para o dashboard local:
+
+- `id`
+- `userId`
+- `projectId`
+- `date`
+- `revenue`
+- `domain`
+- `networkCode`
+- `createdAt`
+- `updatedAt`
 
 O modelo `CampaignMapping` vincula campanhas Meta Ads aos campos ActiveView/GAM por projeto:
 
@@ -318,13 +331,14 @@ As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountI
 
 ## API de GAM / ActiveView
 
-As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY`, nunca retornam o token real ao frontend e sincronizam receitas pela API ActiveView fixa:
+As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY` e nunca retornam o token real ao frontend. O cadastro de conexão apenas salva `networkCode`, `domain` e `authToken`; a sincronização automática roda ao abrir `/`, `/home`, `/dashboard` e `/dashboard/roi`, respeitando debounce de 15 minutos por conexão e persistindo dados locais em `ActiveViewRevenue` e `GamRevenueDaily`:
 
 - `GET /api/gam/connections`
 - `POST /api/gam/connections`
 - `PATCH /api/gam/connections/[id]`
 - `DELETE /api/gam/connections/[id]`
 - `POST /api/gam/sync`
+- `POST /api/gam/auto-sync`
 - `GET /api/gam/revenue`
 - `POST /api/gam/revenue/manual`
 
@@ -334,7 +348,7 @@ A página `/dashboard/tracking-builder` gera URLs para anúncios Meta Ads com os
 
 ## API de ROI
 
-A rota protegida de ROI usa a sessão atual, valida projeto/conta Meta Ads e agrega Meta Insights, mapeamentos e receita ActiveView/GAM por campanha:
+A rota protegida de ROI usa a sessão atual, aciona sincronização automática GAM respeitando debounce de 15 minutos, valida projeto/conta Meta Ads e agrega Meta Insights, mapeamentos e receita ActiveView/GAM por campanha:
 
 - `GET /api/roi/campaigns`
 

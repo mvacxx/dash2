@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageContainer } from "@/components/dashboard/page-container";
 import { GamConnectionsManager } from "@/components/gam/gam-connections-manager";
+import { SyncNowButton } from "@/components/gam/sync-now-button";
 import { Badge } from "@/components/ui/badge";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -85,6 +86,7 @@ export default async function GamPage({ searchParams }: GamPageProps) {
             com segurança e sincronize receitas reais para alimentar o ROI.
           </p>
         </div>
+        <SyncNowButton />
       </div>
 
       {projects.length === 0 ? (

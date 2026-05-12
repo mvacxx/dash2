@@ -217,6 +217,10 @@ export async function syncActiveViewRevenue({
     domain: connection.domain,
     networkCode: connection.networkCode,
   });
+  const dailyRevenue = new Map<
+    string,
+    NormalizedActiveViewRevenue & { revenue: number }
+  >();
   let count = 0;
 
   for (const row of revenueRows) {
@@ -250,6 +254,16 @@ export async function syncActiveViewRevenue({
       rawJson: row.rawJson as Prisma.InputJsonValue,
     };
 
+    const dailyKey = [row.date.toISOString(), row.domain, row.networkCode].join(
+      "|",
+    );
+    const currentDailyRevenue = dailyRevenue.get(dailyKey);
+
+    dailyRevenue.set(dailyKey, {
+      ...row,
+      revenue: (currentDailyRevenue?.revenue ?? 0) + row.revenueNet,
+    });
+
     if (existingRevenue) {
       await prisma.activeViewRevenue.update({
         where: {
@@ -267,6 +281,31 @@ export async function syncActiveViewRevenue({
         },
       });
     }
+  }
+
+  for (const row of dailyRevenue.values()) {
+    await prisma.gamRevenueDaily.upsert({
+      where: {
+        userId_projectId_date_domain_networkCode: {
+          userId,
+          projectId,
+          date: row.date,
+          domain: row.domain,
+          networkCode: row.networkCode,
+        },
+      },
+      update: {
+        revenue: row.revenue,
+      },
+      create: {
+        userId,
+        projectId,
+        date: row.date,
+        revenue: row.revenue,
+        domain: row.domain,
+        networkCode: row.networkCode,
+      },
+    });
   }
 
   return {

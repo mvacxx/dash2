@@ -43,6 +43,7 @@ model User {
   campaignMappings  CampaignMapping[]
   metaInsights      MetaInsight[]
   activeViewRevenue ActiveViewRevenue[]
+  gamRevenueDaily   GamRevenueDaily[]
   syncLogs          SyncLog[]
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
@@ -62,6 +63,7 @@ model Project {
   campaignMappings       CampaignMapping[]
   metaInsights           MetaInsight[]
   activeViewRevenue      ActiveViewRevenue[]
+  gamRevenueDaily        GamRevenueDaily[]
   syncLogs               SyncLog[]
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
@@ -92,18 +94,19 @@ model MetaAccount {
 }
 
 model GamConnection {
-  id          String              @id @default(cuid())
-  userId      String
-  projectId   String
-  networkCode String
-  domain      String
-  authToken   String
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  mappings    CampaignMapping[]
-  revenue     ActiveViewRevenue[]
+  id           String              @id @default(cuid())
+  userId       String
+  projectId    String
+  networkCode  String
+  domain       String
+  authToken    String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mappings     CampaignMapping[]
+  revenue      ActiveViewRevenue[]
+  lastSyncedAt DateTime?
 
   @@unique([projectId, networkCode])
   @@index([userId])
@@ -190,6 +193,25 @@ model ActiveViewRevenue {
   @@index([userId])
   @@index([projectId])
   @@index([gamConnectionId])
+  @@index([date])
+}
+
+model GamRevenueDaily {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String
+  date        DateTime
+  revenue     Float    @default(0)
+  domain      String
+  networkCode String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId, date, domain, networkCode])
+  @@index([userId])
+  @@index([projectId])
   @@index([date])
 }
 
