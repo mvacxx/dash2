@@ -25,7 +25,7 @@ export function SyncNowButton() {
     setMessage("Sincronizando...");
 
     startTransition(async () => {
-      const response = await fetch("/api/gam/auto-sync", {
+      const response = await fetch("/api/sync/trigger", {
         method: "POST",
       });
       const data = (await response

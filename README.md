@@ -218,6 +218,23 @@ O modelo `GamConnection` vincula conexões GAM / ActiveView criptografadas ao us
 - `updatedAt`
 - `lastSyncedAt`
 
+O modelo `GamRevenueRow` armazena cada linha retornada por `response` da API ActiveView para debug e reprocessamento local:
+
+- `id`
+- `userId`
+- `projectId`
+- `gamConnectionId`
+- `networkCode`
+- `domain`
+- `date`
+- `adUnit`
+- `country`
+- `revenueGross`
+- `revenueNet`
+- `rawJson`
+- `createdAt`
+- `updatedAt`
+
 O modelo `GamRevenueDaily` consolida receita diária sincronizada para o dashboard local:
 
 - `id`
@@ -331,7 +348,7 @@ As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountI
 
 ## API de GAM / ActiveView
 
-As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY` e nunca retornam o token real ao frontend. O cadastro de conexão apenas salva `networkCode`, `domain` e `authToken`; a sincronização automática roda ao abrir `/`, `/home`, `/dashboard` e `/dashboard/roi`, respeitando debounce de 15 minutos por conexão e persistindo dados locais em `ActiveViewRevenue` e `GamRevenueDaily`:
+As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY` e nunca retornam o token real ao frontend. O cadastro de conexão apenas salva `networkCode`, `domain` e `authToken`; a sincronização automática roda ao abrir `/`, `/home`, `/dashboard` e `/dashboard/roi`, respeitando debounce de 15 minutos por conexão. O backend robusto usa `POST /api/sync/trigger`, chama `https://external-api.activeview.app/report/${networkCode}/${domain}?start_date=${start}&end_date=${end}`, valida `json.response` como array, detecta receita em `revenue`, `estimated_revenue`, `gross_revenue`, `net_revenue` ou `earnings`, tenta fallback de domínio com/sem `www`, salva rows em `GamRevenueRow` e agrega `GamRevenueDaily`:
 
 - `GET /api/gam/connections`
 - `POST /api/gam/connections`
@@ -339,8 +356,13 @@ As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptogr
 - `DELETE /api/gam/connections/[id]`
 - `POST /api/gam/sync`
 - `POST /api/gam/auto-sync`
+- `POST /api/sync/trigger`
 - `GET /api/gam/revenue`
 - `POST /api/gam/revenue/manual`
+
+## Debug GAM / ActiveView
+
+A página `/dashboard/gam/debug` mostra a última sync ActiveView, quantidade de rows locais e amostras do `rawJson` persistido.
 
 ## Tracking Builder
 

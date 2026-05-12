@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Blocks,
+  Bug,
   Database,
   Building2,
   ChartNoAxesCombined,
@@ -59,6 +60,11 @@ const sidebarItems: SidebarItem[] = [
     label: "Receita ActiveView",
     href: "/dashboard/gam/revenue",
     icon: Database,
+  },
+  {
+    label: "Debug GAM Sync",
+    href: "/dashboard/gam/debug",
+    icon: Bug,
   },
   {
     label: "Mapeamentos",

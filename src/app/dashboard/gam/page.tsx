@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, Plus } from "lucide-react";
+import { BarChart3, Bug, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -86,7 +86,16 @@ export default async function GamPage({ searchParams }: GamPageProps) {
             com segurança e sincronize receitas reais para alimentar o ROI.
           </p>
         </div>
-        <SyncNowButton />
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-indigo-300/60 hover:text-white"
+            href="/dashboard/gam/debug"
+          >
+            <Bug size={18} />
+            Debug sync
+          </Link>
+          <SyncNowButton />
+        </div>
       </div>
 
       {projects.length === 0 ? (

@@ -43,6 +43,7 @@ model User {
   campaignMappings  CampaignMapping[]
   metaInsights      MetaInsight[]
   activeViewRevenue ActiveViewRevenue[]
+  gamRevenueRows    GamRevenueRow[]
   gamRevenueDaily   GamRevenueDaily[]
   syncLogs          SyncLog[]
   createdAt         DateTime            @default(now())
@@ -63,6 +64,7 @@ model Project {
   campaignMappings       CampaignMapping[]
   metaInsights           MetaInsight[]
   activeViewRevenue      ActiveViewRevenue[]
+  gamRevenueRows         GamRevenueRow[]
   gamRevenueDaily        GamRevenueDaily[]
   syncLogs               SyncLog[]
   createdAt              DateTime            @default(now())
@@ -189,6 +191,30 @@ model ActiveViewRevenue {
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   gamConnection   GamConnection @relation(fields: [gamConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([gamConnectionId])
+  @@index([date])
+}
+
+model GamRevenueRow {
+  id              String   @id @default(cuid())
+  userId          String
+  projectId       String
+  gamConnectionId String
+  networkCode     String
+  domain          String
+  date            DateTime
+  adUnit          String   @default("")
+  country         String   @default("")
+  revenueGross    Float    @default(0)
+  revenueNet      Float    @default(0)
+  rawJson         Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([projectId])
