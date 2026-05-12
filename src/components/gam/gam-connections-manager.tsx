@@ -34,10 +34,24 @@ type GamConnectionsManagerProps = {
   selectedProjectId: string;
 };
 
+type GamSyncDebug = {
+  url: string;
+  domain: string;
+  networkCode: string;
+  startDate: string;
+  endDate: string;
+  authorization: "Bearer ***";
+  httpStatus: number | null;
+  rawResponseSummary: string;
+  rowCount: number;
+};
+
 type ApiResponse = {
+  debug?: GamSyncDebug;
   message?: string;
   result?: {
     count: number;
+    debug?: GamSyncDebug;
     message?: string;
   };
 };
@@ -59,6 +73,7 @@ export function GamConnectionsManager({
     null,
   );
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
+  const [syncDebug, setSyncDebug] = useState<GamSyncDebug | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -208,6 +223,7 @@ export function GamConnectionsManager({
     event.preventDefault();
     setError(null);
     setSyncSuccess(null);
+    setSyncDebug(null);
     setToast(null);
     setSyncingConnectionId(connection.id);
 
@@ -235,6 +251,7 @@ export function GamConnectionsManager({
         const message =
           data?.message ?? "Não foi possível sincronizar o relatório GAM.";
         setError(message);
+        setSyncDebug(data?.debug ?? null);
         setToast({ message, type: "error" });
         setSyncingConnectionId(null);
         return;
@@ -249,6 +266,7 @@ export function GamConnectionsManager({
       const detail = `${message}${syncedRows > 0 ? ` (${syncedRows} linha(s))` : ""}.`;
 
       setSyncSuccess(detail);
+      setSyncDebug(data?.result?.debug ?? null);
       setToast({ message: detail, type: "success" });
       setSyncingConnectionId(null);
       router.refresh();
@@ -348,6 +366,7 @@ export function GamConnectionsManager({
               {error}
             </div>
           ) : null}
+          {syncDebug ? <GamSyncDebugPanel debug={syncDebug} /> : null}
 
           {connections.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.03] p-8 text-center">
@@ -603,6 +622,48 @@ function GamInfo({ label, value }: { label: string; value: string }) {
       >
         {label === "Token" ? maskedToken : value}
       </dd>
+    </div>
+  );
+}
+
+function GamSyncDebugPanel({ debug }: { debug: GamSyncDebug }) {
+  return (
+    <div className="rounded-2xl border border-indigo-300/20 bg-indigo-400/10 p-4 text-sm text-indigo-50">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="font-semibold">Debug da última sincronização</p>
+        <span className="text-xs text-indigo-200">
+          {debug.rowCount} linha(s) encontrada(s)
+        </span>
+      </div>
+      <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+        <DebugItem label="URL chamada" value={debug.url} />
+        <DebugItem
+          label="Status HTTP"
+          value={String(debug.httpStatus ?? "—")}
+        />
+        <DebugItem label="Domain" value={debug.domain} />
+        <DebugItem label="Network code" value={debug.networkCode} />
+        <DebugItem label="start_date" value={debug.startDate} />
+        <DebugItem label="end_date" value={debug.endDate} />
+        <DebugItem label="Authorization" value={debug.authorization} />
+      </dl>
+      <div className="mt-3 rounded-xl bg-slate-950/60 p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-200">
+          Resposta bruta resumida
+        </p>
+        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-slate-200">
+          {debug.rawResponseSummary}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+function DebugItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-950/50 p-3">
+      <dt className="font-semibold text-indigo-200">{label}</dt>
+      <dd className="mt-1 break-words text-slate-200">{value}</dd>
     </div>
   );
 }

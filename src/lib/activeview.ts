@@ -13,6 +13,33 @@ type ActiveViewReportParams = {
   networkCode: string;
 };
 
+export type ActiveViewSyncDebug = {
+  url: string;
+  domain: string;
+  networkCode: string;
+  startDate: string;
+  endDate: string;
+  authorization: "Bearer ***";
+  httpStatus: number | null;
+  rawResponse: string;
+  rawResponseSummary: string;
+  rowCount: number;
+};
+
+class ActiveViewSyncError extends Error {
+  debug: ActiveViewSyncDebug;
+
+  constructor(message: string, debug: ActiveViewSyncDebug) {
+    super(message);
+    this.name = "ActiveViewSyncError";
+    this.debug = debug;
+  }
+}
+
+export function getActiveViewSyncErrorDebug(error: unknown) {
+  return error instanceof ActiveViewSyncError ? error.debug : null;
+}
+
 type SyncActiveViewRevenueParams = {
   userId: string;
   projectId: string;
@@ -41,11 +68,14 @@ export type SyncActiveViewRevenueResult = {
   dateFrom: string;
   dateTo: string;
   message: string;
+  debug: ActiveViewSyncDebug;
 };
 
 export async function getActiveViewReport(params: ActiveViewReportParams) {
   const url = buildReportUrl(params);
   const token = normalizeBearerToken(params.authToken);
+  const startDate = toDateInputValue(params.dateFrom);
+  const endDate = toDateInputValue(params.dateTo);
   const response = await fetch(url, {
     cache: "no-store",
     headers: {
@@ -53,16 +83,33 @@ export async function getActiveViewReport(params: ActiveViewReportParams) {
       Authorization: token,
     },
   });
-  const payload = (await response.json().catch(() => null)) as unknown;
+  const rawResponse = await response.text();
+  const payload = parseJsonPayload(rawResponse);
+  const debug: ActiveViewSyncDebug = {
+    url,
+    domain: params.domain,
+    networkCode: params.networkCode,
+    startDate,
+    endDate,
+    authorization: "Bearer ***",
+    httpStatus: response.status,
+    rawResponse,
+    rawResponseSummary: summarizeRawResponse(rawResponse),
+    rowCount: 0,
+  };
 
   if (!response.ok) {
-    throw new Error(
+    throw new ActiveViewSyncError(
       getPayloadError(payload) ??
         "Não foi possível buscar o relatório ActiveView/GAM.",
+      debug,
     );
   }
 
-  return payload;
+  return {
+    payload,
+    debug,
+  };
 }
 
 export function normalizeActiveViewResponse(
@@ -158,7 +205,7 @@ export async function syncActiveViewRevenue({
     throw new Error("Conexão GAM não encontrada para este projeto.");
   }
 
-  const payload = await getActiveViewReport({
+  const { debug, payload } = await getActiveViewReport({
     authToken: decryptToken(connection.authToken),
     dateFrom,
     dateTo,
@@ -230,6 +277,10 @@ export async function syncActiveViewRevenue({
       count > 0
         ? "Receita sincronizada com sucesso"
         : "Nenhuma receita encontrada para o período",
+    debug: {
+      ...debug,
+      rowCount: count,
+    },
   };
 }
 
@@ -249,6 +300,30 @@ function buildReportUrl({
   url.searchParams.set("end_date", toDateInputValue(dateTo));
 
   return url.toString();
+}
+
+function parseJsonPayload(rawResponse: string) {
+  if (!rawResponse.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawResponse) as unknown;
+  } catch {
+    return rawResponse;
+  }
+}
+
+function summarizeRawResponse(rawResponse: string) {
+  const normalizedResponse = rawResponse.trim();
+
+  if (!normalizedResponse) {
+    return "Resposta vazia";
+  }
+
+  return normalizedResponse.length > 1200
+    ? `${normalizedResponse.slice(0, 1200)}...`
+    : normalizedResponse;
 }
 
 function extractRows(payload: unknown): Record<string, unknown>[] {

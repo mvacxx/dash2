@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { syncActiveViewRevenue } from "@/lib/activeview";
+import {
+  getActiveViewSyncErrorDebug,
+  syncActiveViewRevenue,
+  type ActiveViewSyncDebug,
+} from "@/lib/activeview";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -81,6 +85,8 @@ export async function POST(request: NextRequest) {
       dateTo: endOfUtcDay(parsedBody.data.dateTo),
     });
     const message = result.message;
+    logActiveViewSyncDebug(result.debug);
+    const safeDebug = toSafeDebug(result.debug);
 
     await prisma.syncLog.update({
       where: {
@@ -93,12 +99,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ result });
+    return NextResponse.json({
+      result: {
+        ...result,
+        debug: safeDebug,
+      },
+    });
   } catch (error) {
+    const debug = getActiveViewSyncErrorDebug(error);
     const message =
       error instanceof Error
         ? error.message
         : "Não foi possível sincronizar o relatório GAM.";
+
+    if (debug) {
+      logActiveViewSyncDebug(debug);
+    }
 
     await prisma.syncLog.update({
       where: {
@@ -111,8 +127,30 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ message }, { status: 502 });
+    return NextResponse.json(
+      { message, ...(debug ? { debug: toSafeDebug(debug) } : {}) },
+      { status: 502 },
+    );
   }
+}
+
+function logActiveViewSyncDebug(debug: ActiveViewSyncDebug) {
+  console.info("[GAM Sync] ActiveView request", {
+    url: debug.url,
+    domain: debug.domain,
+    networkCode: debug.networkCode,
+    start_date: debug.startDate,
+    end_date: debug.endDate,
+    authorization: debug.authorization,
+    httpStatus: debug.httpStatus,
+    rawResponse: debug.rawResponse,
+  });
+}
+
+function toSafeDebug(debug: ActiveViewSyncDebug) {
+  const { rawResponse: _rawResponse, ...safeDebug } = debug;
+
+  return safeDebug;
 }
 
 function startOfUtcDay(date: Date) {
