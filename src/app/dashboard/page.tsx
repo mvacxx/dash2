@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { SyncNowButton } from "@/components/gam/sync-now-button";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { syncGamRevenue } from "@/services/gam-auto-sync";
 
 const baseMetrics = [
   {
@@ -54,7 +53,6 @@ export default async function DashboardPage() {
   const userId = session?.user?.id;
   const firstName =
     session?.user?.name?.split(" ")[0] ?? session?.user?.email ?? "usuário";
-  const autoSyncResult = userId ? await syncGamRevenue({ userId }) : null;
   const projectCount = userId
     ? await prisma.project.count({
         where: {
@@ -89,8 +87,8 @@ export default async function DashboardPage() {
         ...metric,
         value: formatCurrency(activeViewRevenue?._sum.revenue ?? 0),
         description:
-          "Receita lida do banco local após sincronização automática.",
-        badge: "Auto sync",
+          "Receita lida apenas do banco local.",
+        badge: "Banco local",
       };
     }
 
@@ -123,13 +121,6 @@ export default async function DashboardPage() {
               <SyncNowButton />
             </div>
           </div>
-          {autoSyncResult ? (
-            <p className="relative z-10 mt-4 text-xs text-slate-400">
-              Sincronização automática: {autoSyncResult.synced} conexão(ões),{" "}
-              {autoSyncResult.rows} linha(s).
-              {autoSyncResult.warning ? ` ${autoSyncResult.warning}` : ""}
-            </p>
-          ) : null}
         </div>
       </section>
 

@@ -348,7 +348,7 @@ As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountI
 
 ## API de GAM / ActiveView
 
-As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY` e nunca retornam o token real ao frontend. O cadastro de conexão apenas salva `networkCode`, `domain` e `authToken`; a sincronização automática roda ao abrir `/`, `/home`, `/dashboard` e `/dashboard/roi`, respeitando debounce de 15 minutos por conexão. O backend robusto usa `POST /api/sync/trigger`, chama `https://external-api.activeview.app/report/${networkCode}/${domain}?start_date=${start}&end_date=${end}`, valida `json.response` como array, detecta receita em `revenue`, `estimated_revenue`, `gross_revenue`, `net_revenue` ou `earnings`, tenta fallback de domínio com/sem `www`, salva rows em `GamRevenueRow` e agrega `GamRevenueDaily`:
+As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY` e nunca retornam o token real ao frontend. O cadastro de conexão apenas salva `networkCode`, `domain` e `authToken`. O dashboard, `/home` e o ROI não chamam ActiveView durante server render: eles leem apenas dados locais já salvos. A sincronização acontece somente quando o usuário clica em **Sincronizar agora**, via `POST /api/sync/trigger`; o backend chama `https://external-api.activeview.app/report/${networkCode}/${domain}?start_date=${start}&end_date=${end}`, valida `json.response` como array, detecta receita em `revenue`, `estimated_revenue`, `gross_revenue`, `net_revenue` ou `earnings`, tenta fallback de domínio com/sem `www`, salva rows em `GamRevenueRow` e agrega `GamRevenueDaily`:
 
 - `GET /api/gam/connections`
 - `POST /api/gam/connections`
@@ -370,7 +370,7 @@ A página `/dashboard/tracking-builder` gera URLs para anúncios Meta Ads com os
 
 ## API de ROI
 
-A rota protegida de ROI usa a sessão atual, aciona sincronização automática GAM respeitando debounce de 15 minutos, valida projeto/conta Meta Ads e agrega Meta Insights, mapeamentos e receita ActiveView/GAM por campanha:
+A rota protegida de ROI usa a sessão atual, valida projeto/conta Meta Ads e agrega Meta Insights, mapeamentos e receita GAM/ActiveView já persistida localmente por campanha, sem disparar sincronização externa automaticamente:
 
 - `GET /api/roi/campaigns`
 

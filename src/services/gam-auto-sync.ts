@@ -60,6 +60,8 @@ export type SyncGamRevenueSummary = {
   rowsReceived: number;
   skipped: number;
   synced: number;
+  syncSince: string;
+  syncUntil: string;
   warning?: string;
 };
 
@@ -207,6 +209,7 @@ export async function syncGamRevenue({
           message: buildSyncLogMessage({
             apiPayloadSample: fetchResult.payloadSample,
             durationMs,
+            httpStatus: fetchResult.status,
             rowsInserted,
             rowsReceived: fetchResult.responseRows.length,
             url: fetchResult.url,
@@ -317,6 +320,8 @@ export async function syncGamRevenue({
     rowsReceived,
     skipped,
     synced: results.length,
+    syncSince: toDateInputValue(syncDateFrom),
+    syncUntil: toDateInputValue(syncDateTo),
     warning: getSyncWarning({
       errors,
       rows,
@@ -614,12 +619,14 @@ function buildReportUrl({
 function buildSyncLogMessage({
   apiPayloadSample,
   durationMs,
+  httpStatus,
   rowsInserted,
   rowsReceived,
   url,
 }: {
   apiPayloadSample: string;
   durationMs: number;
+  httpStatus: number;
   rowsInserted: number;
   rowsReceived: number;
   url: string;
@@ -628,6 +635,7 @@ function buildSyncLogMessage({
     `Rows received: ${rowsReceived}.`,
     `Rows inserted: ${rowsInserted}.`,
     `Sync duration: ${durationMs}ms.`,
+    `HTTP status: ${httpStatus}.`,
     `URL: ${url}.`,
     `API payload sample: ${apiPayloadSample || "Resposta vazia"}.`,
   ].join(" ");

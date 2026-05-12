@@ -74,9 +74,9 @@ type MappingRow = {
 };
 
 type RevenueRow = {
-  campaignKey: string | null;
-  adKey: string | null;
-  source: string | null;
+  adUnit: string;
+  country: string;
+  domain: string;
   revenueGross: number;
   revenueNet: number;
   date: Date;
@@ -125,7 +125,7 @@ export async function generateCampaignRoiReport({
         activeViewValueTwo: true,
       },
     }),
-    prisma.activeViewRevenue.findMany({
+    prisma.gamRevenueRow.findMany({
       where: {
         userId,
         projectId,
@@ -135,9 +135,9 @@ export async function generateCampaignRoiReport({
         },
       },
       select: {
-        campaignKey: true,
-        adKey: true,
-        source: true,
+        adUnit: true,
+        country: true,
+        domain: true,
         revenueGross: true,
         revenueNet: true,
         date: true,
@@ -389,7 +389,7 @@ function getMappedRevenue(mapping: MappingRow, revenueRows: RevenueRow[]) {
 
   return revenueRows.reduce(
     (accumulator, revenue) => {
-      const revenueKeys = [revenue.campaignKey, revenue.adKey, revenue.source]
+      const revenueKeys = [revenue.adUnit, revenue.country, revenue.domain]
         .map((key) => normalizeKey(key))
         .filter((key): key is string => Boolean(key));
       const hasMatch = revenueKeys.some((key) => mappingKeys.has(key));

@@ -6,14 +6,13 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 
-type AutoSyncResponse = {
+type SyncTriggerResponse = {
+  ok?: boolean;
+  accounts?: number;
+  rows?: number;
+  syncSince?: string;
+  syncUntil?: string;
   message?: string;
-  result?: {
-    rows: number;
-    skipped: number;
-    synced: number;
-    warning?: string;
-  };
 };
 
 export function SyncNowButton() {
@@ -30,20 +29,18 @@ export function SyncNowButton() {
       });
       const data = (await response
         .json()
-        .catch(() => null)) as AutoSyncResponse | null;
+        .catch(() => null)) as SyncTriggerResponse | null;
 
-      if (!response.ok) {
+      if (!response.ok || !data?.ok) {
         setMessage(data?.message ?? "Não foi possível sincronizar agora.");
         return;
       }
 
-      const rows = data?.result?.rows ?? 0;
-      const synced = data?.result?.synced ?? 0;
-      const warning = data?.result?.warning;
-
       setMessage(
-        warning ??
-          `Sincronização concluída: ${rows} linha(s), ${synced} conexão(ões).`,
+        data.rows === 0
+          ? "Nenhuma receita encontrada para o período."
+          : (data.message ??
+              `Sincronização concluída: ${data.rows} linha(s), ${data.accounts ?? 0} conexão(ões).`),
       );
       router.refresh();
     });

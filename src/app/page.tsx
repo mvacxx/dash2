@@ -1,7 +1,5 @@
 import Link from "next/link";
 
-import { auth } from "@/lib/auth";
-import { syncGamRevenue } from "@/services/gam-auto-sync";
 import { ArrowRight, BarChart3, LockKeyhole, Users } from "lucide-react";
 
 const highlights = [
@@ -24,13 +22,7 @@ const highlights = [
   },
 ];
 
-export default async function Home() {
-  const session = await auth();
-
-  if (session?.user?.id) {
-    await syncGamRevenue({ userId: session.user.id });
-  }
-
+export default function Home() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-10">
       <nav className="flex items-center justify-between">

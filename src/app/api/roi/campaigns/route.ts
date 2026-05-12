@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { syncGamRevenue } from "@/services/gam-auto-sync";
 import { generateCampaignRoiReport } from "@/services/roi-service";
 
 export async function GET(request: NextRequest) {
@@ -87,8 +86,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const autoSync = await syncGamRevenue({ userId });
-
   const report = await generateCampaignRoiReport({
     userId,
     projectId,
@@ -97,7 +94,7 @@ export async function GET(request: NextRequest) {
     dateTo,
   });
 
-  return NextResponse.json({ autoSync, report });
+  return NextResponse.json({ report });
 }
 
 function parseDateBoundary(value: string, boundary: "start" | "end") {

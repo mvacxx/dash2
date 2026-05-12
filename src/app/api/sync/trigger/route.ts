@@ -46,5 +46,17 @@ export async function POST(request: NextRequest) {
     userId,
   });
 
-  return NextResponse.json({ result });
+  return NextResponse.json({
+    ok: true,
+    accounts: result.synced,
+    rows: result.rows,
+    syncSince: result.syncSince,
+    syncUntil: result.syncUntil,
+    message:
+      result.warning ??
+      (result.rows === 0
+        ? "Nenhuma receita encontrada para o período."
+        : "Sincronização concluída com sucesso."),
+    result,
+  });
 }
