@@ -7,6 +7,7 @@ import { Edit3, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 const maskedToken = "********";
 
@@ -22,8 +23,6 @@ type GamConnection = {
   networkCode: string;
   domain: string;
   authToken: string;
-  apiBaseUrl: string | null;
-  reportEndpoint: string | null;
   createdAt: string;
   updatedAt: string;
   project: ProjectOption;
@@ -60,6 +59,10 @@ export function GamConnectionsManager({
     null,
   );
   const [syncSuccess, setSyncSuccess] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
   const [isPending, startTransition] = useTransition();
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId),
@@ -85,6 +88,7 @@ export function GamConnectionsManager({
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setToast(null);
 
     const form = event.currentTarget;
     const payload = buildPayload(new FormData(form), selectedProjectId, true);
@@ -102,11 +106,15 @@ export function GamConnectionsManager({
         .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
-        setError(data?.message ?? "Não foi possível criar a conexão GAM.");
+        const message =
+          data?.message ?? "Não foi possível criar a conexão GAM.";
+        setError(message);
+        setToast({ message, type: "error" });
         return;
       }
 
       resetCreateForm(form);
+      setToast({ message: "Conexão GAM salva com sucesso.", type: "success" });
       router.refresh();
     });
   }
@@ -117,6 +125,7 @@ export function GamConnectionsManager({
   ) {
     event.preventDefault();
     setError(null);
+    setToast(null);
 
     const payload = buildPayload(
       new FormData(event.currentTarget),
@@ -137,11 +146,18 @@ export function GamConnectionsManager({
         .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
-        setError(data?.message ?? "Não foi possível atualizar a conexão GAM.");
+        const message =
+          data?.message ?? "Não foi possível atualizar a conexão GAM.";
+        setError(message);
+        setToast({ message, type: "error" });
         return;
       }
 
       setEditingConnectionId(null);
+      setToast({
+        message: "Conexão GAM atualizada com sucesso.",
+        type: "success",
+      });
       router.refresh();
     });
   }
@@ -156,6 +172,7 @@ export function GamConnectionsManager({
     }
 
     setError(null);
+    setToast(null);
     setDeletingConnectionId(connectionId);
 
     startTransition(async () => {
@@ -167,12 +184,19 @@ export function GamConnectionsManager({
         .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
-        setError(data?.message ?? "Não foi possível remover a conexão GAM.");
+        const message =
+          data?.message ?? "Não foi possível remover a conexão GAM.";
+        setError(message);
+        setToast({ message, type: "error" });
         setDeletingConnectionId(null);
         return;
       }
 
       setDeletingConnectionId(null);
+      setToast({
+        message: "Conexão GAM removida com sucesso.",
+        type: "success",
+      });
       router.refresh();
     });
   }
@@ -184,6 +208,7 @@ export function GamConnectionsManager({
     event.preventDefault();
     setError(null);
     setSyncSuccess(null);
+    setToast(null);
     setSyncingConnectionId(connection.id);
 
     const formData = new FormData(event.currentTarget);
@@ -192,10 +217,6 @@ export function GamConnectionsManager({
       gamConnectionId: connection.id,
       dateFrom: String(formData.get("dateFrom") ?? ""),
       dateTo: String(formData.get("dateTo") ?? ""),
-      fieldOne: String(formData.get("fieldOne") ?? ""),
-      valueOne: String(formData.get("valueOne") ?? ""),
-      fieldTwo: String(formData.get("fieldTwo") ?? ""),
-      valueTwo: String(formData.get("valueTwo") ?? ""),
     };
 
     startTransition(async () => {
@@ -211,23 +232,44 @@ export function GamConnectionsManager({
         .catch(() => null)) as ApiResponse | null;
 
       if (!response.ok) {
-        setError(
-          data?.message ?? "Não foi possível sincronizar o relatório GAM.",
-        );
+        const message =
+          data?.message ?? "Não foi possível sincronizar o relatório GAM.";
+        setError(message);
+        setToast({ message, type: "error" });
         setSyncingConnectionId(null);
         return;
       }
 
-      setSyncSuccess(
-        data?.result?.message ?? "Receita sincronizada com sucesso",
-      );
+      const syncedRows = data?.result?.count ?? 0;
+      const message =
+        data?.result?.message ??
+        (syncedRows > 0
+          ? "Receita sincronizada com sucesso"
+          : "Nenhuma receita encontrada para o período");
+      const detail = `${message}${syncedRows > 0 ? ` (${syncedRows} linha(s))` : ""}.`;
+
+      setSyncSuccess(detail);
+      setToast({ message: detail, type: "success" });
       setSyncingConnectionId(null);
       router.refresh();
     });
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+    <div className="relative grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+      {toast ? (
+        <div
+          className={cn(
+            "fixed right-5 top-5 z-50 max-w-sm rounded-2xl border px-4 py-3 text-sm font-medium shadow-2xl backdrop-blur",
+            toast.type === "success"
+              ? "border-emerald-300/20 bg-emerald-500/15 text-emerald-100 shadow-emerald-950/30"
+              : "border-red-300/20 bg-red-500/15 text-red-100 shadow-red-950/30",
+          )}
+          role="status"
+        >
+          {toast.message}
+        </div>
+      ) : null}
       <section className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-xl shadow-slate-950/20">
         <Badge variant="success">Projeto selecionado</Badge>
         <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white">
@@ -362,14 +404,6 @@ export function GamConnectionsManager({
                         <GamInfo label="Domínio" value={connection.domain} />
                         <GamInfo label="Token" value={connection.authToken} />
                         <GamInfo
-                          label="API base"
-                          value={connection.apiBaseUrl ?? "Não configurado"}
-                        />
-                        <GamInfo
-                          label="Endpoint"
-                          value={connection.reportEndpoint ?? "Não configurado"}
-                        />
-                        <GamInfo
                           label="Projeto"
                           value={connection.project.name}
                         />
@@ -407,45 +441,6 @@ export function GamConnectionsManager({
                             />
                           </label>
                         </div>
-                        <details className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            Filtros avançados
-                          </summary>
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                            <label className="text-xs text-slate-400">
-                              Campo 1
-                              <Input
-                                name="fieldOne"
-                                placeholder="utm_campaign"
-                                type="text"
-                              />
-                            </label>
-                            <label className="text-xs text-slate-400">
-                              Valor 1
-                              <Input
-                                name="valueOne"
-                                placeholder="opcional"
-                                type="text"
-                              />
-                            </label>
-                            <label className="text-xs text-slate-400">
-                              Campo 2
-                              <Input
-                                name="fieldTwo"
-                                placeholder="ad_id"
-                                type="text"
-                              />
-                            </label>
-                            <label className="text-xs text-slate-400">
-                              Valor 2
-                              <Input
-                                name="valueTwo"
-                                placeholder="opcional"
-                                type="text"
-                              />
-                            </label>
-                          </div>
-                        </details>
                         <Button
                           className="mt-3 w-full"
                           disabled={
@@ -454,7 +449,14 @@ export function GamConnectionsManager({
                           type="submit"
                           variant="secondary"
                         >
-                          <RefreshCw size={18} />
+                          <RefreshCw
+                            className={
+                              syncingConnectionId === connection.id
+                                ? "animate-spin"
+                                : undefined
+                            }
+                            size={18}
+                          />
                           {syncingConnectionId === connection.id
                             ? "Sincronizando..."
                             : "Sincronizar"}
@@ -502,8 +504,6 @@ function buildPayload(
     projectId: String(formData.get("projectId") ?? fallbackProjectId),
     networkCode: String(formData.get("networkCode") ?? "").trim(),
     domain: String(formData.get("domain") ?? "").trim(),
-    apiBaseUrl: String(formData.get("apiBaseUrl") ?? "").trim(),
-    reportEndpoint: String(formData.get("reportEndpoint") ?? "").trim(),
     ...(authToken || includeEmptyToken ? { authToken } : {}),
   };
 }
@@ -574,51 +574,6 @@ function GamConnectionFields({
           O token é criptografado antes de ser salvo e nunca é exibido
           novamente.
         </p>
-      </div>
-
-      <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <p className="text-sm font-semibold text-slate-200">
-          Configuração avançada
-        </p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          Informe a API base URL e o Report endpoint somente quando quiser usar
-          a sincronização automática. Esses campos não são necessários para
-          salvar a conexão.
-        </p>
-
-        <div className="mt-4 grid gap-5 md:grid-cols-2">
-          <div>
-            <label
-              className="mb-2 block text-sm font-medium text-slate-200"
-              htmlFor={`${mode}-apiBaseUrl`}
-            >
-              API base URL
-            </label>
-            <Input
-              defaultValue={connection?.apiBaseUrl ?? undefined}
-              id={`${mode}-apiBaseUrl`}
-              name="apiBaseUrl"
-              placeholder="API base URL (opcional)"
-              type="url"
-            />
-          </div>
-
-          <div>
-            <label
-              className="mb-2 block text-sm font-medium text-slate-200"
-              htmlFor={`${mode}-reportEndpoint`}
-            >
-              Report endpoint
-            </label>
-            <Input
-              defaultValue={connection?.reportEndpoint ?? undefined}
-              id={`${mode}-reportEndpoint`}
-              name="reportEndpoint"
-              placeholder="Report endpoint (opcional)"
-              type="text"
-            />
-          </div>
-        </div>
       </div>
     </div>
   );

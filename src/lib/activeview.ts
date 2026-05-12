@@ -3,21 +3,14 @@ import type { Prisma } from "@prisma/client";
 import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
-const defaultActiveViewApiBaseUrl = "https://api.activeview.com.br";
-const defaultActiveViewReportEndpoint = "/reports/activeview";
+const activeViewReportBaseUrl = "https://external-api.activeview.app/report";
 
 type ActiveViewReportParams = {
-  apiBaseUrl: string;
-  reportEndpoint: string;
   authToken: string;
   dateFrom: Date;
   dateTo: Date;
   domain: string;
   networkCode: string;
-  fieldOne?: string;
-  valueOne?: string;
-  fieldTwo?: string;
-  valueTwo?: string;
 };
 
 type SyncActiveViewRevenueParams = {
@@ -26,10 +19,6 @@ type SyncActiveViewRevenueParams = {
   gamConnectionId: string;
   dateFrom: Date;
   dateTo: Date;
-  fieldOne?: string;
-  valueOne?: string;
-  fieldTwo?: string;
-  valueTwo?: string;
 };
 
 export type NormalizedActiveViewRevenue = {
@@ -148,13 +137,9 @@ export function normalizeActiveViewResponse(
 export async function syncActiveViewRevenue({
   dateFrom,
   dateTo,
-  fieldOne,
-  fieldTwo,
   gamConnectionId,
   projectId,
   userId,
-  valueOne,
-  valueTwo,
 }: SyncActiveViewRevenueParams): Promise<SyncActiveViewRevenueResult> {
   const connection = await prisma.gamConnection.findFirst({
     where: {
@@ -163,11 +148,9 @@ export async function syncActiveViewRevenue({
       userId,
     },
     select: {
-      apiBaseUrl: true,
       authToken: true,
       domain: true,
       networkCode: true,
-      reportEndpoint: true,
     },
   });
 
@@ -175,29 +158,17 @@ export async function syncActiveViewRevenue({
     throw new Error("Conexão GAM não encontrada para este projeto.");
   }
 
-  const apiBaseUrl =
-    connection.apiBaseUrl?.trim() || defaultActiveViewApiBaseUrl;
-  const reportEndpoint =
-    connection.reportEndpoint?.trim() || defaultActiveViewReportEndpoint;
-  const syncDomain = connection.domain;
-  const syncNetworkCode = connection.networkCode;
   const payload = await getActiveViewReport({
-    apiBaseUrl,
-    reportEndpoint,
     authToken: decryptToken(connection.authToken),
     dateFrom,
     dateTo,
-    domain: syncDomain,
-    networkCode: syncNetworkCode,
-    fieldOne: normalizeFilterValue(fieldOne),
-    valueOne: normalizeFilterValue(valueOne),
-    fieldTwo: normalizeFilterValue(fieldTwo),
-    valueTwo: normalizeFilterValue(valueTwo),
+    domain: connection.domain,
+    networkCode: connection.networkCode,
   });
   const revenueRows = normalizeActiveViewResponse(payload, {
     dateFrom,
-    domain: syncDomain,
-    networkCode: syncNetworkCode,
+    domain: connection.domain,
+    networkCode: connection.networkCode,
   });
   let count = 0;
 
@@ -263,62 +234,21 @@ export async function syncActiveViewRevenue({
 }
 
 function buildReportUrl({
-  apiBaseUrl,
   dateFrom,
   dateTo,
   domain,
-  fieldOne,
-  fieldTwo,
   networkCode,
-  reportEndpoint,
-  valueOne,
-  valueTwo,
 }: ActiveViewReportParams) {
-  const baseUrl = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
-  const endpoint = reportEndpoint.startsWith("http")
-    ? reportEndpoint
-    : reportEndpoint.replace(/^\/+/, "");
-  const url = new URL(endpoint, baseUrl);
+  const url = new URL(
+    `${activeViewReportBaseUrl}/${encodeURIComponent(
+      networkCode,
+    )}/${encodeURIComponent(domain)}`,
+  );
 
-  url.searchParams.set("dateFrom", toDateInputValue(dateFrom));
-  url.searchParams.set("dateTo", toDateInputValue(dateTo));
-  url.searchParams.set("domain", domain);
-  url.searchParams.set("networkCode", networkCode);
-
-  const firstFilter = buildFilterPair(fieldOne, valueOne);
-  const secondFilter = buildFilterPair(fieldTwo, valueTwo);
-
-  if (firstFilter) {
-    url.searchParams.set("fieldOne", firstFilter.field);
-    url.searchParams.set("valueOne", firstFilter.value);
-  }
-
-  if (secondFilter) {
-    url.searchParams.set("fieldTwo", secondFilter.field);
-    url.searchParams.set("valueTwo", secondFilter.value);
-  }
+  url.searchParams.set("start_date", toDateInputValue(dateFrom));
+  url.searchParams.set("end_date", toDateInputValue(dateTo));
 
   return url.toString();
-}
-
-function buildFilterPair(field?: string, value?: string) {
-  const normalizedField = normalizeFilterValue(field);
-  const normalizedValue = normalizeFilterValue(value);
-
-  if (!normalizedField || !normalizedValue) {
-    return null;
-  }
-
-  return {
-    field: normalizedField,
-    value: normalizedValue,
-  };
-}
-
-function normalizeFilterValue(value?: string) {
-  const trimmedValue = value?.trim();
-
-  return trimmedValue || undefined;
 }
 
 function extractRows(payload: unknown): Record<string, unknown>[] {

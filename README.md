@@ -214,8 +214,6 @@ O modelo `GamConnection` vincula conexões GAM / ActiveView criptografadas ao us
 - `networkCode`
 - `domain`
 - `authToken`
-- `apiBaseUrl`
-- `reportEndpoint`
 - `createdAt`
 - `updatedAt`
 
@@ -320,7 +318,7 @@ As rotas protegidas de contas Meta Ads usam a sessão atual, validam `adAccountI
 
 ## API de GAM / ActiveView
 
-As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY`, nunca retornam o token real ao frontend e permitem sincronizar receitas via endpoint configurável:
+As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptografam `authToken` com `TOKEN_ENCRYPTION_KEY`, nunca retornam o token real ao frontend e sincronizam receitas pela API ActiveView fixa:
 
 - `GET /api/gam/connections`
 - `POST /api/gam/connections`

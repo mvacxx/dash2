@@ -5,12 +5,6 @@ import { syncActiveViewRevenue } from "@/lib/activeview";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const optionalString = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value: string | undefined) => (value ? value : undefined));
-
 const syncGamSchema = z.object({
   projectId: z.string().min(1, "Selecione um projeto."),
   gamConnectionId: z.string().min(1, "Selecione uma conexão GAM."),
@@ -20,10 +14,6 @@ const syncGamSchema = z.object({
   dateTo: z.coerce.date({
     invalid_type_error: "Informe uma data final válida.",
   }),
-  fieldOne: optionalString,
-  valueOne: optionalString,
-  fieldTwo: optionalString,
-  valueTwo: optionalString,
 });
 
 export async function POST(request: NextRequest) {
@@ -89,10 +79,6 @@ export async function POST(request: NextRequest) {
       gamConnectionId: parsedBody.data.gamConnectionId,
       dateFrom: startOfUtcDay(parsedBody.data.dateFrom),
       dateTo: endOfUtcDay(parsedBody.data.dateTo),
-      fieldOne: parsedBody.data.fieldOne,
-      valueOne: parsedBody.data.valueOne,
-      fieldTwo: parsedBody.data.fieldTwo,
-      valueTwo: parsedBody.data.valueTwo,
     });
     const message = result.message;
 
