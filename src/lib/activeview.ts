@@ -323,7 +323,9 @@ function toDateInputValue(date: Date) {
 }
 
 function normalizeBearerToken(token: string) {
-  return token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+  const pureToken = token.replace(/^Bearer\s+/i, "").trim();
+
+  return `Bearer ${pureToken}`;
 }
 
 function getPayloadError(payload: unknown) {

@@ -556,7 +556,7 @@ function GamConnectionFields({
           className="mb-2 block text-sm font-medium text-slate-200"
           htmlFor={`${mode}-authToken`}
         >
-          Auth token Bearer
+          Auth token
         </label>
         <Input
           required={mode === "create"}
@@ -565,14 +565,14 @@ function GamConnectionFields({
           name="authToken"
           placeholder={
             mode === "create"
-              ? "Bearer token"
+              ? "Cole o token Bearer ou apenas o token"
               : "Deixe em branco para manter o token atual"
           }
           type="password"
         />
         <p className="mt-2 text-xs text-slate-500">
-          O token é criptografado antes de ser salvo e nunca é exibido
-          novamente.
+          Você pode colar com ou sem Bearer. O sistema normaliza
+          automaticamente, criptografa o token e nunca exibe o valor novamente.
         </p>
       </div>
     </div>

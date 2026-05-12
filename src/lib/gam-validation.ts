@@ -3,14 +3,15 @@ import { z } from "zod";
 const domainRegex =
   /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
-const bearerTokenSchema = z
+const authTokenSchema = z
   .string()
   .trim()
-  .min(1, "Informe o token Bearer.")
-  .refine(
-    (token) => token.startsWith("Bearer "),
-    "O token precisa começar com Bearer.",
-  );
+  .transform(normalizeAuthToken)
+  .pipe(z.string().min(1, "Informe o token GAM / ActiveView."));
+
+function normalizeAuthToken(token: string) {
+  return token.replace(/^Bearer\s+/i, "").trim();
+}
 
 export const gamConnectionSchema = z.object({
   projectId: z.string().min(1, "Selecione um projeto."),
@@ -23,7 +24,7 @@ export const gamConnectionSchema = z.object({
       (domain) => domainRegex.test(domain),
       "Informe um domínio válido, sem http ou caminho.",
     ),
-  authToken: bearerTokenSchema,
+  authToken: authTokenSchema,
 });
 
 export const updateGamConnectionSchema = gamConnectionSchema.extend({
@@ -33,5 +34,5 @@ export const updateGamConnectionSchema = gamConnectionSchema.extend({
     }
 
     return undefined;
-  }, bearerTokenSchema.optional()),
+  }, authTokenSchema.optional()),
 });
