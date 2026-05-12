@@ -72,6 +72,7 @@ export default async function GamPage({ searchParams }: GamPageProps) {
       updatedAt: connection.updatedAt.toISOString(),
     }),
   );
+  const syncRange = getDefaultSyncRange();
 
   return (
     <PageContainer>
@@ -94,7 +95,13 @@ export default async function GamPage({ searchParams }: GamPageProps) {
             <Bug size={18} />
             Debug sync
           </Link>
-          <SyncNowButton />
+          {selectedProjectId ? (
+            <SyncNowButton
+              dateFrom={syncRange.dateFrom}
+              dateTo={syncRange.dateTo}
+              projectId={selectedProjectId}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -127,4 +134,20 @@ export default async function GamPage({ searchParams }: GamPageProps) {
       )}
     </PageContainer>
   );
+}
+
+function getDefaultSyncRange() {
+  const dateTo = new Date();
+  const dateFrom = new Date(dateTo);
+
+  dateFrom.setUTCDate(dateFrom.getUTCDate() - 6);
+
+  return {
+    dateFrom: toDateInputValue(dateFrom),
+    dateTo: toDateInputValue(dateTo),
+  };
+}
+
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
 }

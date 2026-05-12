@@ -53,13 +53,27 @@ export default async function DashboardPage() {
   const userId = session?.user?.id;
   const firstName =
     session?.user?.name?.split(" ")[0] ?? session?.user?.email ?? "usuário";
-  const projectCount = userId
-    ? await prisma.project.count({
-        where: {
-          userId,
-        },
-      })
-    : 0;
+  const [projectCount, firstProject] = userId
+    ? await Promise.all([
+        prisma.project.count({
+          where: {
+            userId,
+          },
+        }),
+        prisma.project.findFirst({
+          where: {
+            userId,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          select: {
+            id: true,
+          },
+        }),
+      ])
+    : [0, null];
+  const dashboardSyncRange = getDefaultSyncRange();
   const activeViewRevenue = userId
     ? await prisma.gamRevenueDaily.aggregate({
         where: {
@@ -86,8 +100,7 @@ export default async function DashboardPage() {
       return {
         ...metric,
         value: formatCurrency(activeViewRevenue?._sum.revenue ?? 0),
-        description:
-          "Receita lida apenas do banco local.",
+        description: "Receita lida apenas do banco local.",
         badge: "Banco local",
       };
     }
@@ -118,7 +131,13 @@ export default async function DashboardPage() {
                   Ver ROI por campanha
                 </Button>
               </Link>
-              <SyncNowButton />
+              {firstProject ? (
+                <SyncNowButton
+                  dateFrom={dashboardSyncRange.dateFrom}
+                  dateTo={dashboardSyncRange.dateTo}
+                  projectId={firstProject.id}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -185,4 +204,20 @@ function formatCurrency(value: number) {
     currency: "BRL",
     style: "currency",
   }).format(value);
+}
+
+function getDefaultSyncRange() {
+  const dateTo = new Date();
+  const dateFrom = new Date(dateTo);
+
+  dateFrom.setUTCDate(dateFrom.getUTCDate() - 6);
+
+  return {
+    dateFrom: toDateInputValue(dateFrom),
+    dateTo: toDateInputValue(dateTo),
+  };
+}
+
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
 }

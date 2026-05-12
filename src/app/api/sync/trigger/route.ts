@@ -2,17 +2,23 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { syncMetaInsights } from "@/lib/meta";
 import { prisma } from "@/lib/prisma";
 import { syncGamRevenue } from "@/services/gam-auto-sync";
+import { generateCampaignRoiReport } from "@/services/roi-service";
 
-const triggerSyncSchema = z
-  .object({
-    dateFrom: z.coerce.date().optional(),
-    dateTo: z.coerce.date().optional(),
-    force: z.boolean().optional().default(true),
-    projectId: z.string().min(1).optional(),
-  })
-  .optional();
+const triggerSyncSchema = z.object({
+  dateFrom: z.coerce.date({
+    invalid_type_error: "Informe uma data inicial válida.",
+    required_error: "Informe dateFrom.",
+  }),
+  dateTo: z.coerce.date({
+    invalid_type_error: "Informe uma data final válida.",
+    required_error: "Informe dateTo.",
+  }),
+  force: z.boolean().optional().default(true),
+  projectId: z.string().min(1, "Informe o projeto."),
+});
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -32,52 +38,145 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { dateFrom, dateTo, force, projectId } = parsedBody.data ?? {
-    force: true,
-  };
+  const { dateFrom, dateTo, force, projectId } = parsedBody.data;
 
-  if (dateFrom && dateTo && dateFrom > dateTo) {
+  if (dateFrom > dateTo) {
     return NextResponse.json(
       { message: "A data inicial não pode ser maior que a data final." },
       { status: 400 },
     );
   }
 
-  const connectionsCount = await prisma.gamConnection.count({
+  const project = await prisma.project.findFirst({
     where: {
+      id: projectId,
       userId,
-      ...(projectId ? { projectId } : {}),
+    },
+    select: {
+      id: true,
     },
   });
 
+  if (!project) {
+    return NextResponse.json(
+      { message: "Projeto não encontrado." },
+      { status: 404 },
+    );
+  }
+
+  const syncDateFrom = startOfUtcDay(dateFrom);
+  const syncDateTo = endOfUtcDay(dateTo);
+  const [metaAccounts, gamConnectionsCount] = await Promise.all([
+    prisma.metaAccount.findMany({
+      where: {
+        projectId,
+        userId,
+      },
+      select: {
+        id: true,
+        label: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    }),
+    prisma.gamConnection.count({
+      where: {
+        userId,
+        projectId,
+      },
+    }),
+  ]);
+
   console.log("[SYNC TRIGGER]", {
     projectId,
-    dateFrom: dateFrom ? toDateInputValue(dateFrom) : undefined,
-    dateTo: dateTo ? toDateInputValue(dateTo) : undefined,
-    connectionsCount,
+    dateFrom: toDateInputValue(syncDateFrom),
+    dateTo: toDateInputValue(syncDateTo),
+    connectionsCount: gamConnectionsCount,
   });
 
-  const result = await syncGamRevenue({
-    dateFrom,
-    dateTo,
+  let metaRows = 0;
+
+  for (const account of metaAccounts) {
+    const result = await syncMetaInsights({
+      userId,
+      projectId,
+      metaAccountId: account.id,
+      dateFrom: syncDateFrom,
+      dateTo: syncDateTo,
+    });
+
+    metaRows += result.count;
+    console.log("[META SYNC]", {
+      account: account.id,
+      rows: result.count,
+    });
+  }
+
+  const gamResult = await syncGamRevenue({
+    dateFrom: syncDateFrom,
+    dateTo: syncDateTo,
     force,
     projectId,
     userId,
   });
+  const gamRows = gamResult.rowsReceived;
+
+  console.log("[GAM SYNC]", {
+    rows: gamRows,
+  });
+
+  const roiReport = await generateCampaignRoiReport({
+    userId,
+    projectId,
+    dateFrom: syncDateFrom,
+    dateTo: syncDateTo,
+  });
+  const roiRows = roiReport.rows.length;
+  const rows = metaRows + gamRows;
+
+  console.log("[ROI SYNC]", {
+    rows: roiRows,
+  });
 
   return NextResponse.json({
     ok: true,
-    accounts: result.synced,
-    rows: result.rows,
-    syncSince: result.syncSince,
-    syncUntil: result.syncUntil,
-    message:
-      result.warning ??
-      (result.rows === 0
-        ? "Nenhuma receita encontrada para o período."
-        : "Sincronização concluída com sucesso."),
-    result,
+    accounts: metaAccounts.length,
+    gamConnections: gamConnectionsCount,
+    metaRows,
+    gamRows,
+    rows,
+    roiRows,
+    syncSince: toDateInputValue(syncDateFrom),
+    syncUntil: toDateInputValue(syncDateTo),
+    message: `Sync concluído: ${metaAccounts.length} contas, ${rows} registros`,
+    result: {
+      gam: gamResult,
+      roi: {
+        rows: roiRows,
+      },
+    },
   });
+}
+
+function startOfUtcDay(date: Date) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+}
+
+function endOfUtcDay(date: Date) {
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
 }
 
 function toDateInputValue(date: Date) {

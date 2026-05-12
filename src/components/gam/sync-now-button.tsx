@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 type SyncTriggerResponse = {
   ok?: boolean;
   accounts?: number;
+  gamConnections?: number;
+  gamRows?: number;
+  metaRows?: number;
   rows?: number;
   syncSince?: string;
   syncUntil?: string;
@@ -62,9 +65,8 @@ export function SyncNowButton({
 
       setToast({
         message:
-          data.rows === 0
-            ? "Nenhuma receita encontrada para o período."
-            : `Sincronização concluída: ${data.rows ?? 0} registros encontrados`,
+          data.message ??
+          `Sync concluído: ${data.accounts ?? 0} contas, ${data.rows ?? 0} registros`,
         type: "success",
       });
       router.refresh();

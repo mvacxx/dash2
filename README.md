@@ -362,7 +362,7 @@ As rotas protegidas de conexões GAM / ActiveView usam a sessão atual, criptogr
 
 ## Debug GAM / ActiveView
 
-A página `/dashboard/gam/debug` mostra a última sync ActiveView, URL chamada, status HTTP, rows retornadas e amostras do `rawJson` persistido. O botão **Sincronizar agora** da página ROI envia `projectId`, `dateFrom` e `dateTo` em formato `YYYY-MM-DD` para `POST /api/sync/trigger`, respeitando exatamente o período selecionado nos filtros.
+A página `/dashboard/gam/debug` mostra a última sync ActiveView, URL chamada, status HTTP, rows retornadas e amostras do `rawJson` persistido. O botão **Sincronizar agora** da página ROI envia `projectId`, `dateFrom` e `dateTo` em formato `YYYY-MM-DD` para `POST /api/sync/trigger`, respeitando exatamente o período selecionado nos filtros. Esse endpoint sincroniza todas as contas Meta do projeto, sincroniza as conexões GAM do projeto, recalcula o ROI local e retorna `accounts`, `gamConnections`, `metaRows`, `gamRows` e `rows`.
 
 ## Tracking Builder
 
