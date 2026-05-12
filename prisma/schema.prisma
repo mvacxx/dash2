@@ -1,0 +1,261 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ConnectionType {
+  META_API
+  MANUAL
+}
+
+enum TrackingType {
+  UTM_CAMPAIGN
+  CAMPAIGN_ID
+  AD_ID
+  ADSET_ID
+  CUSTOM
+}
+
+enum SyncSource {
+  META
+  ACTIVEVIEW
+  ROI
+}
+
+enum SyncStatus {
+  SUCCESS
+  ERROR
+  RUNNING
+}
+
+model User {
+  id                String              @id @default(cuid())
+  name              String?
+  email             String              @unique
+  passwordHash      String
+  projects          Project[]
+  metaAccounts      MetaAccount[]
+  gamConnections    GamConnection[]
+  campaignMappings  CampaignMapping[]
+  metaInsights      MetaInsight[]
+  activeViewRevenue ActiveViewRevenue[]
+  gamRevenueRows    GamRevenueRow[]
+  gamRevenueDaily   GamRevenueDaily[]
+  syncLogs          SyncLog[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+}
+
+model Project {
+  id                     String              @id @default(cuid())
+  userId                 String
+  name                   String
+  domain                 String
+  timezone               String              @default("America/Sao_Paulo")
+  currency               String              @default("BRL")
+  loveTaxPercent         Float               @default(0)
+  operationalCostPercent Float               @default(0)
+  metaAccounts           MetaAccount[]
+  gamConnections         GamConnection[]
+  campaignMappings       CampaignMapping[]
+  metaInsights           MetaInsight[]
+  activeViewRevenue      ActiveViewRevenue[]
+  gamRevenueRows         GamRevenueRow[]
+  gamRevenueDaily        GamRevenueDaily[]
+  syncLogs               SyncLog[]
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, domain])
+  @@index([userId])
+}
+
+model MetaAccount {
+  id             String            @id @default(cuid())
+  userId         String
+  projectId      String
+  label          String
+  adAccountId    String
+  accessToken    String
+  connectionType ConnectionType    @default(META_API)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mappings       CampaignMapping[]
+  insights       MetaInsight[]
+
+  @@unique([projectId, adAccountId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+model GamConnection {
+  id           String              @id @default(cuid())
+  userId       String
+  projectId    String
+  networkCode  String
+  domain       String
+  authToken    String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mappings     CampaignMapping[]
+  revenue      ActiveViewRevenue[]
+  lastSyncedAt DateTime?
+
+  @@unique([projectId, networkCode])
+  @@index([userId])
+  @@index([projectId])
+}
+
+model CampaignMapping {
+  id                   String        @id @default(cuid())
+  userId               String
+  projectId            String
+  metaAccountId        String
+  gamConnectionId      String
+  facebookCampaignId   String
+  facebookCampaignName String
+  trackingType         TrackingType  @default(UTM_CAMPAIGN)
+  activeViewFieldOne   String
+  activeViewValueOne   String
+  activeViewFieldTwo   String?
+  activeViewValueTwo   String?
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project              Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  metaAccount          MetaAccount   @relation(fields: [metaAccountId], references: [id], onDelete: Cascade)
+  gamConnection        GamConnection @relation(fields: [gamConnectionId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, facebookCampaignId])
+  @@index([userId])
+  @@index([projectId])
+  @@index([metaAccountId])
+  @@index([gamConnectionId])
+}
+
+model MetaInsight {
+  id            String      @id @default(cuid())
+  userId        String
+  projectId     String
+  metaAccountId String
+  campaignId    String
+  campaignName  String
+  spend         Float       @default(0)
+  impressions   Int         @default(0)
+  clicks        Int         @default(0)
+  cpc           Float       @default(0)
+  cpm           Float       @default(0)
+  ctr           Float       @default(0)
+  date          DateTime
+  level         String      @default("campaign")
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  metaAccount   MetaAccount @relation(fields: [metaAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, metaAccountId, campaignId, date, level])
+  @@index([userId])
+  @@index([projectId])
+  @@index([metaAccountId])
+  @@index([date])
+}
+
+model ActiveViewRevenue {
+  id              String        @id @default(cuid())
+  userId          String
+  projectId       String
+  gamConnectionId String
+  date            DateTime
+  domain          String
+  networkCode     String
+  source          String?
+  campaignKey     String?
+  adKey           String?
+  revenueGross    Float         @default(0)
+  revenueNet      Float         @default(0)
+  views           Int           @default(0)
+  rpm             Float         @default(0)
+  currency        String        @default("BRL")
+  rawJson         Json?
+  createdAt       DateTime      @default(now())
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  gamConnection   GamConnection @relation(fields: [gamConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([gamConnectionId])
+  @@index([date])
+}
+
+model GamRevenueRow {
+  id              String   @id @default(cuid())
+  userId          String
+  projectId       String
+  gamConnectionId String
+  networkCode     String
+  domain          String
+  date            DateTime
+  adUnit          String   @default("")
+  country         String   @default("")
+  revenueGross    Float    @default(0)
+  revenueNet      Float    @default(0)
+  rawJson         Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([gamConnectionId])
+  @@index([date])
+}
+
+model GamRevenueDaily {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String
+  date        DateTime
+  revenue     Float    @default(0)
+  domain      String
+  networkCode String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId, date, domain, networkCode])
+  @@index([userId])
+  @@index([projectId])
+  @@index([date])
+}
+
+model SyncLog {
+  id         String     @id @default(cuid())
+  userId     String
+  projectId  String
+  source     SyncSource
+  status     SyncStatus
+  message    String?
+  startedAt  DateTime   @default(now())
+  finishedAt DateTime?
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([source])
+  @@index([status])
+  @@index([startedAt])
+}
