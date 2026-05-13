@@ -214,6 +214,8 @@ model GamRevenueRow {
   requestUri      String   @default("")
   utmSource       String   @default("")
   impressions     Int      @default(0)
+  clicks          Int      @default(0)
+  ctr             Float    @default(0)
   ecpm            Float    @default(0)
   matchRate       Float    @default(0)
   responsesServed Int      @default(0)

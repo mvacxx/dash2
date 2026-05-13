@@ -426,7 +426,10 @@ export function GamConnectionsManager({
                       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                         <GamInfo label="Domínio" value={connection.domain} />
                         <GamInfo label="Token" value={connection.authToken} />
-                        <GamInfo label="KVP Key" value={connection.kvpKey || "utm_campaign"} />
+                        <GamInfo
+                          label="KVP Key"
+                          value={connection.kvpKey || "utm_campaign"}
+                        />
                         <GamInfo
                           label="Projeto"
                           value={connection.project.name}
@@ -528,7 +531,8 @@ function buildPayload(
     projectId: String(formData.get("projectId") ?? fallbackProjectId),
     networkCode: String(formData.get("networkCode") ?? "").trim(),
     domain: String(formData.get("domain") ?? "").trim(),
-    kvpKey: String(formData.get("kvpKey") ?? "utm_campaign").trim() || "utm_campaign",
+    kvpKey:
+      String(formData.get("kvpKey") ?? "utm_campaign").trim() || "utm_campaign",
     ...(authToken || includeEmptyToken ? { authToken } : {}),
   };
 }
@@ -591,7 +595,8 @@ function GamConnectionFields({
           type="text"
         />
         <p className="mt-2 text-xs text-slate-500">
-          Campo usado para cruzar receita ActiveView com Meta Ads. Se vazio, usa utm_campaign.
+          Campo usado para cruzar receita ActiveView com Meta Ads. Se vazio, usa
+          utm_campaign.
         </p>
       </div>
 
@@ -677,8 +682,14 @@ function GamSyncDebugPanel({ debug }: { debug: GamSyncDebug }) {
         <DebugItem label="Network code" value={debug.networkCode} />
         <DebugItem label="KVP key" value={debug.key ?? "utm_campaign"} />
         <DebugItem label="Linhas recebidas" value={String(debug.rowCount)} />
-        <DebugItem label="Revenue total" value={formatCurrency(debug.revenueTotal ?? 0)} />
-        <DebugItem label="Campaigns matched" value={String(debug.campaignsMatched ?? 0)} />
+        <DebugItem
+          label="Revenue total"
+          value={formatCurrency(debug.revenueTotal ?? 0)}
+        />
+        <DebugItem
+          label="Campaigns matched"
+          value={String(debug.campaignsMatched ?? 0)}
+        />
         <DebugItem label="start_date" value={debug.startDate} />
         <DebugItem label="end_date" value={debug.endDate} />
         <DebugItem label="Authorization" value={debug.authorization} />

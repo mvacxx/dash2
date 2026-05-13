@@ -66,6 +66,8 @@ export type NormalizedActiveViewRevenue = {
   requestUri: string;
   utmSource: string;
   impressions: number;
+  clicks: number;
+  ctr: number;
   ecpm: number;
   matchRate: number;
   responsesServed: number;
@@ -142,7 +144,23 @@ export function normalizeActiveViewResponse(
   const kvpKey = normalizeKvpKey(fallback.kvpKey);
 
   return extractRows(payload).map((row) => {
-    const kvpValue = readString(row, [kvpKey]);
+    const trackingKey = readString(row, ["key"]) ?? kvpKey;
+    const trackingValue =
+      readString(row, ["value"]) ?? readString(row, [trackingKey]) ?? "";
+    const revenueRaw = readOptionalNumber(row, [
+      "ad_exchange_line_item_level_revenue",
+    ]);
+    const revenue =
+      revenueRaw !== null
+        ? revenueRaw / 1_000_000
+        : readNumber(row, [
+            "revenueNet",
+            "revenue_net",
+            "netRevenue",
+            "net_revenue",
+            "net",
+            "revenue",
+          ]);
 
     return {
       date: parseReportDate(
@@ -173,21 +191,32 @@ export function normalizeActiveViewResponse(
       country:
         readString(row, ["country", "country_code", "countryCode", "geo"]) ??
         "",
-      kvpKey,
-      kvpValue: kvpValue ?? "",
+      kvpKey: trackingKey,
+      kvpValue: trackingValue,
       requestUri:
         readString(row, ["request_uri", "requestUri", "uri", "url"]) ?? "",
       utmSource: readString(row, ["utm_source", "utmSource", "source"]) ?? "",
-      impressions: readInteger(row, ["impressions", "ad_impressions", "views"]),
+      impressions: readInteger(row, [
+        "ad_exchange_line_item_level_impressions",
+        "impressions",
+        "ad_impressions",
+        "views",
+      ]),
+      clicks: readInteger(row, [
+        "ad_exchange_line_item_level_clicks",
+        "clicks",
+      ]),
+      ctr: readNumber(row, ["ad_exchange_line_item_level_ctr", "ctr"]),
       ecpm: readNumber(row, ["ecpm", "eCPM", "rpm"]),
       matchRate: readNumber(row, ["match_rate", "matchRate"]),
       responsesServed: readInteger(row, [
+        "ad_exchange_responses_served",
         "responses_served",
         "responsesServed",
       ]),
       campaignKey:
-        kvpKey === "utm_campaign"
-          ? kvpValue
+        trackingKey === "utm_campaign"
+          ? trackingValue
           : readString(row, [
               "campaignKey",
               "campaign_key",
@@ -196,8 +225,8 @@ export function normalizeActiveViewResponse(
               "utm_campaign",
             ]),
       adKey:
-        kvpKey === "ad_id"
-          ? kvpValue
+        trackingKey === "ad_id"
+          ? trackingValue
           : readString(row, [
               "adKey",
               "ad_key",
@@ -206,23 +235,10 @@ export function normalizeActiveViewResponse(
               "creative_id",
               "utm_content",
             ]),
-      revenueGross: readNumber(row, [
-        "revenueGross",
-        "revenue_gross",
-        "grossRevenue",
-        "gross_revenue",
-        "revenue",
-        "earnings",
-      ]),
-      revenueNet: readNumber(row, [
-        "revenueNet",
-        "revenue_net",
-        "netRevenue",
-        "net_revenue",
-        "net",
-        "revenue",
-      ]),
+      revenueGross: revenue,
+      revenueNet: revenue,
       views: readInteger(row, [
+        "ad_exchange_line_item_level_impressions",
         "views",
         "pageviews",
         "page_views",
@@ -276,6 +292,8 @@ export async function syncActiveViewRevenue({
     networkCode: connection.networkCode,
     kvpKey: connection.kvpKey,
   });
+  logKvpParser({ payload, rows: revenueRows });
+
   const dailyRevenue = new Map<
     string,
     NormalizedActiveViewRevenue & { revenue: number }
@@ -442,6 +460,8 @@ async function persistGamRevenueRows({
       requestUri: row.requestUri,
       utmSource: row.utmSource,
       impressions: row.impressions,
+      clicks: row.clicks,
+      ctr: row.ctr,
       ecpm: row.ecpm,
       matchRate: row.matchRate,
       responsesServed: row.responsesServed,
@@ -545,16 +565,39 @@ function readString(row: Record<string, unknown>, keys: string[]) {
 }
 
 function readNumber(row: Record<string, unknown>, keys: string[]) {
+  return readOptionalNumber(row, keys) ?? 0;
+}
+
+function readOptionalNumber(row: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = row[key];
-    const parsed = typeof value === "number" ? value : Number(value ?? 0);
+    const parsed = parseNumericValue(value);
 
-    if (Number.isFinite(parsed)) {
+    if (parsed !== null) {
       return parsed;
     }
   }
 
-  return 0;
+  return null;
+}
+
+function parseNumericValue(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const normalizedValue = value.replace(/[^0-9,.-]/g, "");
+  const decimalNormalizedValue =
+    normalizedValue.includes(",") && normalizedValue.includes(".")
+      ? normalizedValue.replace(/,/g, "")
+      : normalizedValue.replace(/,/g, ".");
+  const parsed = Number(decimalNormalizedValue);
+
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function readInteger(row: Record<string, unknown>, keys: string[]) {
@@ -592,6 +635,29 @@ function countMatchedCampaigns(rows: NormalizedActiveViewRevenue[]) {
       .map((row) => row.campaignKey ?? row.adKey)
       .filter((value): value is string => Boolean(value)),
   ).size;
+}
+
+function logKvpParser({
+  payload,
+  rows,
+}: {
+  payload: unknown;
+  rows: NormalizedActiveViewRevenue[];
+}) {
+  const rawRows = extractRows(payload);
+  const sampleRow = rawRows[0];
+  const sampleRevenueRaw = sampleRow
+    ? readOptionalNumber(sampleRow, ["ad_exchange_line_item_level_revenue"])
+    : null;
+
+  console.info("[KVP PARSER]", {
+    rowsReceived: rows.length,
+    totalRevenue: rows.reduce((total, row) => total + row.revenueNet, 0),
+    sampleValue: rows[0]?.kvpValue ?? null,
+    sampleRevenueRaw,
+    sampleRevenueNormalized:
+      sampleRevenueRaw !== null ? sampleRevenueRaw / 1_000_000 : null,
+  });
 }
 
 function normalizeBearerToken(token: string) {

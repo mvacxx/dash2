@@ -124,7 +124,7 @@ export default async function DashboardPage() {
           }),
         ]),
       ])
-    : [null, 0, [[], []] as const];
+    : [null, 0, [[], []]];
   const campaignsMatched = countMatchedCampaigns(
     revenueMatchData[0],
     revenueMatchData[1],
@@ -265,19 +265,53 @@ function countMatchedCampaigns(
   revenueRows: { kvpValue: string }[],
 ) {
   const campaignKeys = new Set(
-    campaigns.flatMap((campaign) => [
-      normalizeKey(campaign.campaignId),
-      normalizeKey(campaign.campaignName),
-    ]),
+    campaigns
+      .flatMap((campaign) => [
+        normalizeKey(campaign.campaignId),
+        normalizeKey(campaign.campaignName),
+      ])
+      .filter(Boolean),
   );
 
-  return revenueRows.filter((row) =>
-    campaignKeys.has(normalizeKey(row.kvpValue)),
-  ).length;
+  return revenueRows.filter((row) => {
+    const trackingKey = normalizeKey(row.kvpValue);
+
+    return Array.from(campaignKeys).some((campaignKey) =>
+      keysMatch(campaignKey, trackingKey),
+    );
+  }).length;
+}
+
+function keysMatch(metaKey: string, trackingKey: string) {
+  if (!metaKey || !trackingKey) {
+    return false;
+  }
+
+  if (metaKey === trackingKey) {
+    return true;
+  }
+
+  if (metaKey.includes(trackingKey) || trackingKey.includes(metaKey)) {
+    return true;
+  }
+
+  const metaTokens = new Set(
+    metaKey.split("_").filter((token) => token.length > 2),
+  );
+  const trackingTokens = trackingKey
+    .split("_")
+    .filter((token) => token.length > 2);
+
+  return trackingTokens.some((token) => metaTokens.has(token));
 }
 
 function normalizeKey(value: string) {
-  return value.trim().toLowerCase();
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_+/g, "_");
 }
 
 function formatCurrency(value: number) {

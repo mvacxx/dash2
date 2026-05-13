@@ -253,7 +253,10 @@ function buildCampaignRows({
       roi,
       roas,
       status: getCampaignStatus({
-        hasMapping: Boolean(mapping) || revenue.revenueGross > 0 || revenue.revenueNet > 0,
+        hasMapping:
+          Boolean(mapping) ||
+          revenue.revenueGross > 0 ||
+          revenue.revenueNet > 0,
         profit,
         revenueGross: revenue.revenueGross,
         revenueNet: revenue.revenueNet,
@@ -409,7 +412,11 @@ function getMappedRevenueForCampaign(
       const revenueKeys = getRevenueMatchKeys(revenue)
         .map((key) => normalizeKey(key))
         .filter((key): key is string => Boolean(key));
-      const hasMatch = revenueKeys.some((key) => mappingKeys.has(key));
+      const hasMatch = revenueKeys.some((key) =>
+        Array.from(mappingKeys).some((mappingKey) =>
+          keysMatch(mappingKey, key),
+        ),
+      );
 
       if (hasMatch) {
         accumulator.revenueGross += revenue.revenueGross;
@@ -494,7 +501,36 @@ function getDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function keysMatch(metaKey: string, trackingKey: string) {
+  if (!metaKey || !trackingKey) {
+    return false;
+  }
+
+  if (metaKey === trackingKey) {
+    return true;
+  }
+
+  if (metaKey.includes(trackingKey) || trackingKey.includes(metaKey)) {
+    return true;
+  }
+
+  const metaTokens = new Set(
+    metaKey.split("_").filter((token) => token.length > 2),
+  );
+  const trackingTokens = trackingKey
+    .split("_")
+    .filter((token) => token.length > 2);
+
+  return trackingTokens.some((token) => metaTokens.has(token));
+}
+
 function normalizeKey(key: string | null | undefined) {
-  const normalizedKey = key?.trim().toLowerCase();
+  const normalizedKey = key
+    ?.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/_+/g, "_");
+
   return normalizedKey || null;
 }

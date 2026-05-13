@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
     roiRows,
     syncSince: toDateInputValue(syncDateFrom),
     syncUntil: toDateInputValue(syncDateTo),
-    message: `Sync concluído: ${metaAccounts.length} contas, ${gamRows} linhas KVP, ${formatCurrency(gamRevenueTotal)} revenue, ${gamCampaignsMatched} campaigns matched`,
+    message: `Sync concluído: ${metaAccounts.length} contas, ${gamRows} linhas KVP, ${formatCurrency(gamRevenueTotal)} revenue`,
     result: {
       gam: gamResult,
       roi: {

@@ -92,6 +92,8 @@ type NormalizedGamRevenueRow = {
   requestUri: string;
   utmSource: string;
   impressions: number;
+  clicks: number;
+  ctr: number;
   ecpm: number;
   matchRate: number;
   responsesServed: number;
@@ -197,6 +199,11 @@ export async function syncGamRevenue({
           kvpKey: connection.kvpKey,
         }),
       );
+      logKvpParser({
+        rawRows: fetchResult.responseRows,
+        rows: normalizedRows,
+      });
+
       const rowsInserted = await persistGamRevenueRows({
         connectionId: connection.id,
         dateFrom: syncDateFrom,
@@ -494,6 +501,8 @@ async function persistGamRevenueRows({
       requestUri: row.requestUri,
       utmSource: row.utmSource,
       impressions: row.impressions,
+      clicks: row.clicks,
+      ctr: row.ctr,
       ecpm: row.ecpm,
       matchRate: row.matchRate,
       responsesServed: row.responsesServed,
@@ -576,9 +585,17 @@ function normalizeGamRevenueRow(
     kvpKey?: string | null;
   },
 ): NormalizedGamRevenueRow {
-  const kvpKey = normalizeKvpKey(fallback.kvpKey);
-  const netRevenue = readNumber(row, [...netRevenueFieldCandidates]);
-  const grossRevenue = readNumber(row, [...grossRevenueFieldCandidates]);
+  const fallbackKvpKey = normalizeKvpKey(fallback.kvpKey);
+  const trackingKey = readString(row, ["key"]) ?? fallbackKvpKey;
+  const trackingValue =
+    readString(row, ["value"]) ?? readString(row, [trackingKey]) ?? "";
+  const revenueRaw = readOptionalNumber(row, [
+    "ad_exchange_line_item_level_revenue",
+  ]);
+  const revenue =
+    revenueRaw !== null
+      ? revenueRaw / 1_000_000
+      : readNumber(row, [...netRevenueFieldCandidates]);
 
   return {
     adUnit:
@@ -607,17 +624,28 @@ function normalizeGamRevenueRow(
         "network",
         "network_id",
       ]) ?? fallback.networkCode,
-    kvpKey,
-    kvpValue: readString(row, [kvpKey]) ?? "",
+    kvpKey: trackingKey,
+    kvpValue: trackingValue,
     requestUri:
       readString(row, ["request_uri", "requestUri", "uri", "url"]) ?? "",
     utmSource: readString(row, ["utm_source", "utmSource", "source"]) ?? "",
-    impressions: readInteger(row, ["impressions", "ad_impressions", "views"]),
+    impressions: readInteger(row, [
+      "ad_exchange_line_item_level_impressions",
+      "impressions",
+      "ad_impressions",
+      "views",
+    ]),
+    clicks: readInteger(row, ["ad_exchange_line_item_level_clicks", "clicks"]),
+    ctr: readNumber(row, ["ad_exchange_line_item_level_ctr", "ctr"]),
     ecpm: readNumber(row, ["ecpm", "eCPM", "rpm"]),
     matchRate: readNumber(row, ["match_rate", "matchRate"]),
-    responsesServed: readInteger(row, ["responses_served", "responsesServed"]),
-    revenueGross: grossRevenue || netRevenue,
-    revenueNet: netRevenue || grossRevenue,
+    responsesServed: readInteger(row, [
+      "ad_exchange_responses_served",
+      "responses_served",
+      "responsesServed",
+    ]),
+    revenueGross: revenue,
+    revenueNet: revenue,
     rawJson: row as Prisma.InputJsonValue,
   };
 }
@@ -753,6 +781,10 @@ function readInteger(row: Record<string, unknown>, keys: string[]) {
 }
 
 function readNumber(row: Record<string, unknown>, keys: string[]) {
+  return readOptionalNumber(row, keys) ?? 0;
+}
+
+function readOptionalNumber(row: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = row[key];
     const parsed = parseRevenueValue(value);
@@ -762,7 +794,7 @@ function readNumber(row: Record<string, unknown>, keys: string[]) {
     }
   }
 
-  return 0;
+  return null;
 }
 
 function parseRevenueValue(value: unknown) {
@@ -792,6 +824,28 @@ function parseReportDate(value: string | Date) {
   }
 
   return new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+}
+
+function logKvpParser({
+  rawRows,
+  rows,
+}: {
+  rawRows: Record<string, unknown>[];
+  rows: NormalizedGamRevenueRow[];
+}) {
+  const sampleRow = rawRows[0];
+  const sampleRevenueRaw = sampleRow
+    ? readOptionalNumber(sampleRow, ["ad_exchange_line_item_level_revenue"])
+    : null;
+
+  console.info("[KVP PARSER]", {
+    rowsReceived: rows.length,
+    totalRevenue: rows.reduce((total, row) => total + row.revenueNet, 0),
+    sampleValue: rows[0]?.kvpValue ?? null,
+    sampleRevenueRaw,
+    sampleRevenueNormalized:
+      sampleRevenueRaw !== null ? sampleRevenueRaw / 1_000_000 : null,
+  });
 }
 
 function normalizeKvpKey(kvpKey?: string | null) {

@@ -52,6 +52,8 @@ export default async function GamSyncDebugPage() {
         requestUri: true,
         utmSource: true,
         impressions: true,
+        clicks: true,
+        ctr: true,
         ecpm: true,
         matchRate: true,
         responsesServed: true,
@@ -159,6 +161,8 @@ export default async function GamSyncDebugPage() {
                     <p>Gross: {formatCurrency(row.revenueGross)}</p>
                     <p>Net: {formatCurrency(row.revenueNet)}</p>
                     <p>Impressions: {row.impressions}</p>
+                    <p>Clicks: {row.clicks}</p>
+                    <p>CTR: {row.ctr}</p>
                     <p>eCPM: {row.ecpm}</p>
                     <p>Match rate: {row.matchRate}</p>
                     <p>Responses served: {row.responsesServed}</p>
