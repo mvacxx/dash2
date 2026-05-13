@@ -230,7 +230,7 @@ function buildCampaignRows({
     const revenue = getMappedRevenueForCampaign(campaign, mapping, revenueRows);
     const profit = revenue.revenueNet - campaign.spend;
     const roi = campaign.spend > 0 ? (profit / campaign.spend) * 100 : 0;
-    const roas = campaign.spend > 0 ? revenue.revenueGross / campaign.spend : 0;
+    const roas = campaign.spend > 0 ? revenue.revenueNet / campaign.spend : 0;
 
     return {
       campaignId: campaign.campaignId,
@@ -328,7 +328,7 @@ function buildDailyRows({
     current.profit = current.revenueNet - current.spend;
     current.roi =
       current.spend > 0 ? (current.profit / current.spend) * 100 : 0;
-    current.roas = current.spend > 0 ? current.revenueGross / current.spend : 0;
+    current.roas = current.spend > 0 ? current.revenueNet / current.spend : 0;
     dailyRows.set(date, current);
   }
 
@@ -369,7 +369,7 @@ function calculateTotals(rows: CampaignRoiReportRow[]) {
   totals.ctr =
     totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
   totals.roi = totals.spend > 0 ? (totals.profit / totals.spend) * 100 : 0;
-  totals.roas = totals.spend > 0 ? totals.revenueGross / totals.spend : 0;
+  totals.roas = totals.spend > 0 ? totals.revenueNet / totals.spend : 0;
 
   return totals;
 }

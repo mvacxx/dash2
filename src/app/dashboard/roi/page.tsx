@@ -330,9 +330,10 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                   />
                   <DashboardMetricCard
                     icon={CircleDollarSign}
-                    label="Receita GAM"
+                    description="Receita líquida após 10% ActiveView e 9% imposto"
+                    label="Receita GAM líquida"
                     tone="positive"
-                    value={formatCurrency(report.totals.revenueGross)}
+                    value={formatCurrency(report.totals.revenueNet)}
                   />
                   <DashboardMetricCard
                     icon={
@@ -474,7 +475,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                           <th className="px-4 py-4">CTR</th>
                           <th className="px-4 py-4">CPC</th>
                           <th className="px-4 py-4">CPM</th>
-                          <th className="px-4 py-4">Receita</th>
+                          <th className="px-4 py-4">Receita líquida</th>
                           <th className="px-4 py-4">Lucro</th>
                           <th className="px-4 py-4">ROI</th>
                           <th className="px-4 py-4">ROAS</th>
@@ -522,7 +523,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                                 {formatCurrency(row.cpm)}
                               </td>
                               <td className="px-4 py-4 text-emerald-100">
-                                {formatCurrency(row.revenueGross)}
+                                {formatCurrency(row.revenueNet)}
                               </td>
                               <td
                                 className={
@@ -569,7 +570,9 @@ function DashboardMetricCard({
   label,
   tone = "neutral",
   value,
+  description,
 }: {
+  description?: string;
   icon: typeof Banknote;
   label: string;
   tone?: MetricTone;
@@ -588,6 +591,7 @@ function DashboardMetricCard({
   return (
     <div
       className={`rounded-3xl bg-gradient-to-br p-4 ring-1 shadow-xl shadow-slate-950/20 ${toneClasses[tone]}`}
+      title={description}
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
@@ -598,6 +602,9 @@ function DashboardMetricCard({
         </div>
       </div>
       <p className="mt-4 text-2xl font-bold tracking-tight">{value}</p>
+      {description ? (
+        <p className="mt-2 text-xs leading-5 text-slate-400">{description}</p>
+      ) : null}
     </div>
   );
 }

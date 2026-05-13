@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
+import { calculateGamNetRevenue } from "@/lib/revenue";
 
 const activeViewReportBaseUrl = "https://external-api.activeview.app/report";
 const syncDebounceMs = 15 * 60 * 1000;
@@ -645,7 +646,7 @@ function normalizeGamRevenueRow(
       "responsesServed",
     ]),
     revenueGross: revenue,
-    revenueNet: revenue,
+    revenueNet: calculateGamNetRevenue(revenue),
     rawJson: row as Prisma.InputJsonValue,
   };
 }

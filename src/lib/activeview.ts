@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
+import { calculateGamNetRevenue } from "@/lib/revenue";
 
 const activeViewReportBaseUrl = "https://external-api.activeview.app/report";
 const defaultKvpKey = "utm_campaign";
@@ -236,7 +237,7 @@ export function normalizeActiveViewResponse(
               "utm_content",
             ]),
       revenueGross: revenue,
-      revenueNet: revenue,
+      revenueNet: calculateGamNetRevenue(revenue),
       views: readInteger(row, [
         "ad_exchange_line_item_level_impressions",
         "views",

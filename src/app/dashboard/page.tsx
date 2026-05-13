@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { SyncNowButton } from "@/components/gam/sync-now-button";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateGamRevenueBreakdown } from "@/lib/revenue";
 
 const baseMetrics = [
   {
@@ -33,9 +34,9 @@ const baseMetrics = [
     badge: "Manual",
   },
   {
-    title: "Receita GAM / ActiveView",
+    title: "Receita GAM líquida",
     value: "R$ 0,00",
-    description: "Receitas manuais já podem ser usadas para testes.",
+    description: "Receita líquida após 10% ActiveView e 9% imposto.",
     icon: CircleDollarSign,
     badge: "Manual",
   },
@@ -59,6 +60,34 @@ const baseMetrics = [
     description: "Campanhas Meta cruzadas com valores KVP.",
     icon: BarChart3,
     badge: "KVP",
+  },
+  {
+    title: "Receita bruta GAM",
+    value: "R$ 0,00",
+    description: "Receita bruta vinda da ActiveView antes dos descontos.",
+    icon: CircleDollarSign,
+    badge: "Bruta",
+  },
+  {
+    title: "Desconto ActiveView 10%",
+    value: "R$ 0,00",
+    description: "10% descontado sobre a receita bruta GAM.",
+    icon: TrendingUp,
+    badge: "Desconto",
+  },
+  {
+    title: "Imposto 9%",
+    value: "R$ 0,00",
+    description: "9% aplicado após o desconto ActiveView.",
+    icon: TrendingUp,
+    badge: "Imposto",
+  },
+  {
+    title: "Receita líquida final",
+    value: "R$ 0,00",
+    description: "Receita líquida após 10% ActiveView e 9% imposto.",
+    icon: CircleDollarSign,
+    badge: "Líquida",
   },
 ];
 
@@ -88,14 +117,15 @@ export default async function DashboardPage() {
       ])
     : [0, null];
   const dashboardSyncRange = getDefaultSyncRange();
-  const [activeViewRevenue, kvpRowsReceived, revenueMatchData] = userId
+  const [gamRevenueTotals, kvpRowsReceived, revenueMatchData] = userId
     ? await Promise.all([
-        prisma.gamRevenueDaily.aggregate({
+        prisma.gamRevenueRow.aggregate({
           where: {
             userId,
           },
           _sum: {
-            revenue: true,
+            revenueGross: true,
+            revenueNet: true,
           },
         }),
         prisma.gamRevenueRow.count({
@@ -129,6 +159,11 @@ export default async function DashboardPage() {
     revenueMatchData[0],
     revenueMatchData[1],
   );
+  const gamRevenueBreakdown = calculateGamRevenueBreakdown(
+    gamRevenueTotals?._sum.revenueGross ?? 0,
+  );
+  const gamNetRevenue =
+    gamRevenueTotals?._sum.revenueNet ?? gamRevenueBreakdown.netRevenue;
   const metrics = baseMetrics.map((metric) => {
     if (metric.title === "Projetos ativos") {
       return {
@@ -145,7 +180,7 @@ export default async function DashboardPage() {
       return {
         ...metric,
         value: `${kvpRowsReceived} linha${kvpRowsReceived === 1 ? "" : "s"}`,
-        description: `Revenue total: ${formatCurrency(activeViewRevenue?._sum.revenue ?? 0)}.`,
+        description: `Revenue líquido: ${formatCurrency(gamNetRevenue)}.`,
       };
     }
 
@@ -157,12 +192,40 @@ export default async function DashboardPage() {
       };
     }
 
-    if (metric.title === "Receita GAM / ActiveView") {
+    if (metric.title === "Receita GAM líquida") {
       return {
         ...metric,
-        value: formatCurrency(activeViewRevenue?._sum.revenue ?? 0),
-        description: "Receita lida apenas do banco local.",
-        badge: "Banco local",
+        value: formatCurrency(gamNetRevenue),
+        description: "Receita líquida após 10% ActiveView e 9% imposto.",
+        badge: "Líquida",
+      };
+    }
+
+    if (metric.title === "Receita bruta GAM") {
+      return {
+        ...metric,
+        value: formatCurrency(gamRevenueBreakdown.grossRevenue),
+      };
+    }
+
+    if (metric.title === "Desconto ActiveView 10%") {
+      return {
+        ...metric,
+        value: `-${formatCurrency(gamRevenueBreakdown.activeViewDiscount)}`,
+      };
+    }
+
+    if (metric.title === "Imposto 9%") {
+      return {
+        ...metric,
+        value: `-${formatCurrency(gamRevenueBreakdown.tax)}`,
+      };
+    }
+
+    if (metric.title === "Receita líquida final") {
+      return {
+        ...metric,
+        value: formatCurrency(gamNetRevenue),
       };
     }
 
@@ -204,7 +267,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {metrics.map((metric) => (
           <MetricCard
             badge={metric.badge}
