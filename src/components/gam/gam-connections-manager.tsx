@@ -526,6 +526,8 @@ function buildPayload(
   includeEmptyToken: boolean,
 ) {
   const authToken = String(formData.get("authToken") ?? "").trim();
+  const normalizedToken = authToken.replace(/^Bearer\s+/i, "").trim();
+  const shouldSendToken = normalizedToken && normalizedToken !== maskedToken;
 
   return {
     projectId: String(formData.get("projectId") ?? fallbackProjectId),
@@ -533,7 +535,9 @@ function buildPayload(
     domain: String(formData.get("domain") ?? "").trim(),
     kvpKey:
       String(formData.get("kvpKey") ?? "utm_campaign").trim() || "utm_campaign",
-    ...(authToken || includeEmptyToken ? { authToken } : {}),
+    ...(shouldSendToken || includeEmptyToken
+      ? { authToken: shouldSendToken ? normalizedToken : "" }
+      : {}),
   };
 }
 
@@ -605,7 +609,7 @@ function GamConnectionFields({
           className="mb-2 block text-sm font-medium text-slate-200"
           htmlFor={`${mode}-authToken`}
         >
-          Auth token
+          {mode === "create" ? "Auth token" : "Atualizar token"}
         </label>
         <Input
           required={mode === "create"}
@@ -615,13 +619,14 @@ function GamConnectionFields({
           placeholder={
             mode === "create"
               ? "Cole o token Bearer ou apenas o token"
-              : "Deixe em branco para manter o token atual"
+              : "Cole um novo token para substituir o atual"
           }
           type="password"
         />
         <p className="mt-2 text-xs text-slate-500">
-          Você pode colar com ou sem Bearer. O sistema normaliza
-          automaticamente, criptografa o token e nunca exibe o valor novamente.
+          {mode === "edit"
+            ? "Deixe em branco para manter o token atual. Preencha apenas para atualizar o token salvo."
+            : "Você pode colar com ou sem Bearer. O sistema normaliza automaticamente, criptografa o token e nunca exibe o valor novamente."}
         </p>
       </div>
     </div>

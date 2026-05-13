@@ -4,12 +4,18 @@ const domainRegex =
   /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 const defaultKvpKey = "utm_campaign";
+const maskedToken = "********";
 
 const authTokenSchema = z
   .string()
   .trim()
   .transform(normalizeAuthToken)
-  .pipe(z.string().min(1, "Informe o token GAM / ActiveView."));
+  .pipe(
+    z
+      .string()
+      .min(1, "Informe o token GAM / ActiveView.")
+      .refine((token) => token !== maskedToken, "Informe um token válido."),
+  );
 
 function normalizeAuthToken(token: string) {
   return token.replace(/^Bearer\s+/i, "").trim();
@@ -36,8 +42,12 @@ export const gamConnectionSchema = z.object({
 
 export const updateGamConnectionSchema = gamConnectionSchema.extend({
   authToken: z.preprocess((value) => {
-    if (typeof value === "string" && value.trim()) {
-      return value;
+    if (typeof value === "string") {
+      const normalizedValue = normalizeAuthToken(value);
+
+      if (normalizedValue && normalizedValue !== maskedToken) {
+        return normalizedValue;
+      }
     }
 
     return undefined;

@@ -661,9 +661,17 @@ function logKvpParser({
 }
 
 function normalizeBearerToken(token: string) {
-  const pureToken = token.replace(/^Bearer\s+/i, "").trim();
+  const cleanToken = token.replace(/^Bearer\s+/i, "").trim();
 
-  return `Bearer ${pureToken}`;
+  console.log("[ACTIVEVIEW AUTH DEBUG]", {
+    tokenLength: cleanToken.length,
+    tokenStart: cleanToken.slice(0, 6),
+    tokenEnd: cleanToken.slice(-6),
+    hasColon: cleanToken.includes(":"),
+    authorizationPreview: `Bearer ${cleanToken.slice(0, 6)}...${cleanToken.slice(-6)}`,
+  });
+
+  return `Bearer ${cleanToken}`;
 }
 
 function getPayloadError(payload: unknown) {
