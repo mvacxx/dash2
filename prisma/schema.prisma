@@ -101,6 +101,7 @@ model GamConnection {
   projectId    String
   networkCode  String
   domain       String
+  kvpKey       String              @default("utm_campaign")
   authToken    String
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
@@ -208,6 +209,14 @@ model GamRevenueRow {
   date            DateTime
   adUnit          String   @default("")
   country         String   @default("")
+  kvpKey          String   @default("utm_campaign")
+  kvpValue        String   @default("")
+  requestUri      String   @default("")
+  utmSource       String   @default("")
+  impressions     Int      @default(0)
+  ecpm            Float    @default(0)
+  matchRate       Float    @default(0)
+  responsesServed Int      @default(0)
   revenueGross    Float    @default(0)
   revenueNet      Float    @default(0)
   rawJson         Json?

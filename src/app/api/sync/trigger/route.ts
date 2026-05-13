@@ -121,10 +121,14 @@ export async function POST(request: NextRequest) {
     userId,
   });
   const gamRows = gamResult.rowsReceived;
-
-  console.log("[GAM SYNC]", {
-    rows: gamRows,
-  });
+  const gamRevenueTotal = gamResult.connections.reduce(
+    (total, connection) => total + connection.revenueTotal,
+    0,
+  );
+  let gamCampaignsMatched = gamResult.connections.reduce(
+    (total, connection) => total + connection.campaignsMatched,
+    0,
+  );
 
   const roiReport = await generateCampaignRoiReport({
     userId,
@@ -133,7 +137,16 @@ export async function POST(request: NextRequest) {
     dateTo: syncDateTo,
   });
   const roiRows = roiReport.rows.length;
+  gamCampaignsMatched = roiReport.rows.filter(
+    (row) => row.revenueGross > 0 || row.revenueNet > 0,
+  ).length;
   const rows = metaRows + gamRows;
+
+  console.log("[GAM SYNC]", {
+    rows: gamRows,
+    revenueTotal: gamRevenueTotal,
+    campaignsMatched: gamCampaignsMatched,
+  });
 
   console.log("[ROI SYNC]", {
     rows: roiRows,
@@ -145,11 +158,13 @@ export async function POST(request: NextRequest) {
     gamConnections: gamConnectionsCount,
     metaRows,
     gamRows,
+    gamRevenueTotal,
+    gamCampaignsMatched,
     rows,
     roiRows,
     syncSince: toDateInputValue(syncDateFrom),
     syncUntil: toDateInputValue(syncDateTo),
-    message: `Sync concluído: ${metaAccounts.length} contas, ${rows} registros`,
+    message: `Sync concluído: ${metaAccounts.length} contas, ${gamRows} linhas KVP, ${formatCurrency(gamRevenueTotal)} revenue, ${gamCampaignsMatched} campaigns matched`,
     result: {
       gam: gamResult,
       roi: {
@@ -157,6 +172,13 @@ export async function POST(request: NextRequest) {
       },
     },
   });
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    currency: "BRL",
+    style: "currency",
+  }).format(value);
 }
 
 function startOfUtcDay(date: Date) {

@@ -77,6 +77,10 @@ type RevenueRow = {
   adUnit: string;
   country: string;
   domain: string;
+  kvpKey: string;
+  kvpValue: string;
+  requestUri: string;
+  utmSource: string;
   revenueGross: number;
   revenueNet: number;
   date: Date;
@@ -138,6 +142,10 @@ export async function generateCampaignRoiReport({
         adUnit: true,
         country: true,
         domain: true,
+        kvpKey: true,
+        kvpValue: true,
+        requestUri: true,
+        utmSource: true,
         revenueGross: true,
         revenueNet: true,
         date: true,
@@ -219,9 +227,7 @@ function buildCampaignRows({
 }) {
   const rows = Array.from(insightsByCampaignId.values()).map((campaign) => {
     const mapping = mappingByCampaignId.get(campaign.campaignId);
-    const revenue = mapping
-      ? getMappedRevenue(mapping, revenueRows)
-      : { revenueGross: 0, revenueNet: 0 };
+    const revenue = getMappedRevenueForCampaign(campaign, mapping, revenueRows);
     const profit = revenue.revenueNet - campaign.spend;
     const roi = campaign.spend > 0 ? (profit / campaign.spend) * 100 : 0;
     const roas = campaign.spend > 0 ? revenue.revenueGross / campaign.spend : 0;
@@ -247,7 +253,7 @@ function buildCampaignRows({
       roi,
       roas,
       status: getCampaignStatus({
-        hasMapping: Boolean(mapping),
+        hasMapping: Boolean(mapping) || revenue.revenueGross > 0 || revenue.revenueNet > 0,
         profit,
         revenueGross: revenue.revenueGross,
         revenueNet: revenue.revenueNet,
@@ -298,12 +304,17 @@ function buildDailyRows({
 
     for (const campaignId of campaignIds) {
       const mapping = mappingByCampaignId.get(campaignId);
+      const insight = insights.find(
+        (item) =>
+          item.campaignId === campaignId && getDateKey(item.date) === date,
+      );
 
-      if (!mapping) {
+      if (!insight) {
         continue;
       }
 
-      const revenue = getMappedRevenue(
+      const revenue = getMappedRevenueForCampaign(
+        insight,
         mapping,
         revenueRows.filter((row) => getDateKey(row.date) === date),
       );
@@ -376,12 +387,18 @@ function calculateStatusTotals(rows: CampaignRoiReportRow[]) {
   );
 }
 
-function getMappedRevenue(mapping: MappingRow, revenueRows: RevenueRow[]) {
+function getMappedRevenueForCampaign(
+  campaign: Pick<InsightRow, "campaignId" | "campaignName">,
+  mapping: MappingRow | undefined,
+  revenueRows: RevenueRow[],
+) {
   const mappingKeys = new Set(
     [
-      mapping.facebookCampaignId,
-      mapping.activeViewValueOne,
-      mapping.activeViewValueTwo,
+      campaign.campaignId,
+      campaign.campaignName,
+      mapping?.facebookCampaignId,
+      mapping?.activeViewValueOne,
+      mapping?.activeViewValueTwo,
     ]
       .map((key) => normalizeKey(key))
       .filter((key): key is string => Boolean(key)),
@@ -389,7 +406,7 @@ function getMappedRevenue(mapping: MappingRow, revenueRows: RevenueRow[]) {
 
   return revenueRows.reduce(
     (accumulator, revenue) => {
-      const revenueKeys = [revenue.adUnit, revenue.country, revenue.domain]
+      const revenueKeys = getRevenueMatchKeys(revenue)
         .map((key) => normalizeKey(key))
         .filter((key): key is string => Boolean(key));
       const hasMatch = revenueKeys.some((key) => mappingKeys.has(key));
@@ -403,6 +420,32 @@ function getMappedRevenue(mapping: MappingRow, revenueRows: RevenueRow[]) {
     },
     { revenueGross: 0, revenueNet: 0 },
   );
+}
+
+function getRevenueMatchKeys(revenue: RevenueRow) {
+  const keys = [
+    revenue.kvpValue,
+    revenue.requestUri,
+    revenue.utmSource,
+    revenue.adUnit,
+    revenue.country,
+    revenue.domain,
+  ];
+
+  if (revenue.kvpKey === "ad_id") {
+    return [revenue.kvpValue, revenue.requestUri, revenue.adUnit];
+  }
+
+  if (revenue.kvpKey === "utm_campaign") {
+    return [
+      revenue.kvpValue,
+      revenue.requestUri,
+      revenue.utmSource,
+      revenue.adUnit,
+    ];
+  }
+
+  return keys;
 }
 
 function getCampaignStatus({

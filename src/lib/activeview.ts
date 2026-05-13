@@ -4,6 +4,7 @@ import { decryptToken } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
 const activeViewReportBaseUrl = "https://external-api.activeview.app/report";
+const defaultKvpKey = "utm_campaign";
 
 type ActiveViewReportParams = {
   authToken: string;
@@ -11,6 +12,7 @@ type ActiveViewReportParams = {
   dateTo: Date;
   domain: string;
   networkCode: string;
+  kvpKey?: string;
 };
 
 export type ActiveViewSyncDebug = {
@@ -24,6 +26,9 @@ export type ActiveViewSyncDebug = {
   rawResponse: string;
   rawResponseSummary: string;
   rowCount: number;
+  key: string;
+  revenueTotal: number;
+  campaignsMatched: number;
 };
 
 class ActiveViewSyncError extends Error {
@@ -54,6 +59,16 @@ export type NormalizedActiveViewRevenue = {
   networkCode: string;
   source?: string;
   campaignKey?: string;
+  adUnit: string;
+  country: string;
+  kvpKey: string;
+  kvpValue: string;
+  requestUri: string;
+  utmSource: string;
+  impressions: number;
+  ecpm: number;
+  matchRate: number;
+  responsesServed: number;
   adKey?: string;
   revenueGross: number;
   revenueNet: number;
@@ -96,6 +111,9 @@ export async function getActiveViewReport(params: ActiveViewReportParams) {
     rawResponse,
     rawResponseSummary: summarizeRawResponse(rawResponse),
     rowCount: 0,
+    key: normalizeKvpKey(params.kvpKey),
+    revenueTotal: 0,
+    campaignsMatched: 0,
   };
 
   if (!response.ok) {
@@ -118,67 +136,105 @@ export function normalizeActiveViewResponse(
     dateFrom: Date;
     domain: string;
     networkCode: string;
+    kvpKey?: string | null;
   },
 ): NormalizedActiveViewRevenue[] {
-  return extractRows(payload).map((row) => ({
-    date: parseReportDate(
-      readString(row, ["date", "day", "date_start", "dateStart"]) ??
-        fallback.dateFrom,
-    ),
-    domain:
-      readString(row, ["domain", "site", "host", "hostname"]) ??
-      fallback.domain,
-    networkCode:
-      readString(row, [
-        "networkCode",
-        "network_code",
-        "network",
-        "network_id",
-      ]) ?? fallback.networkCode,
-    source: readString(row, ["source", "channel", "platform", "utm_source"]),
-    campaignKey: readString(row, [
-      "campaignKey",
-      "campaign_key",
-      "campaign",
-      "campaign_id",
-      "utm_campaign",
-    ]),
-    adKey: readString(row, [
-      "adKey",
-      "ad_key",
-      "ad",
-      "ad_id",
-      "creative_id",
-      "utm_content",
-    ]),
-    revenueGross: readNumber(row, [
-      "revenueGross",
-      "revenue_gross",
-      "grossRevenue",
-      "gross_revenue",
-      "revenue",
-      "earnings",
-    ]),
-    revenueNet: readNumber(row, [
-      "revenueNet",
-      "revenue_net",
-      "netRevenue",
-      "net_revenue",
-      "net",
-      "revenue",
-    ]),
-    views: readInteger(row, [
-      "views",
-      "pageviews",
-      "page_views",
-      "impressions",
-      "ad_impressions",
-    ]),
-    rpm: readNumber(row, ["rpm", "pageRpm", "page_rpm", "ecpm", "eCPM"]),
-    currency:
-      readString(row, ["currency", "currencyCode", "currency_code"]) ?? "BRL",
-    rawJson: row,
-  }));
+  const kvpKey = normalizeKvpKey(fallback.kvpKey);
+
+  return extractRows(payload).map((row) => {
+    const kvpValue = readString(row, [kvpKey]);
+
+    return {
+      date: parseReportDate(
+        readString(row, ["date", "day", "date_start", "dateStart"]) ??
+          fallback.dateFrom,
+      ),
+      domain:
+        readString(row, ["domain", "site", "host", "hostname"]) ??
+        fallback.domain,
+      networkCode:
+        readString(row, [
+          "networkCode",
+          "network_code",
+          "network",
+          "network_id",
+        ]) ?? fallback.networkCode,
+      source: readString(row, ["source", "channel", "platform", "utm_source"]),
+      adUnit:
+        readString(row, [
+          "adUnit",
+          "ad_unit",
+          "adunit",
+          "ad_unit_name",
+          "adUnitName",
+          "ad_unit_id",
+          "adUnitId",
+        ]) ?? "",
+      country:
+        readString(row, ["country", "country_code", "countryCode", "geo"]) ??
+        "",
+      kvpKey,
+      kvpValue: kvpValue ?? "",
+      requestUri:
+        readString(row, ["request_uri", "requestUri", "uri", "url"]) ?? "",
+      utmSource: readString(row, ["utm_source", "utmSource", "source"]) ?? "",
+      impressions: readInteger(row, ["impressions", "ad_impressions", "views"]),
+      ecpm: readNumber(row, ["ecpm", "eCPM", "rpm"]),
+      matchRate: readNumber(row, ["match_rate", "matchRate"]),
+      responsesServed: readInteger(row, [
+        "responses_served",
+        "responsesServed",
+      ]),
+      campaignKey:
+        kvpKey === "utm_campaign"
+          ? kvpValue
+          : readString(row, [
+              "campaignKey",
+              "campaign_key",
+              "campaign",
+              "campaign_id",
+              "utm_campaign",
+            ]),
+      adKey:
+        kvpKey === "ad_id"
+          ? kvpValue
+          : readString(row, [
+              "adKey",
+              "ad_key",
+              "ad",
+              "ad_id",
+              "creative_id",
+              "utm_content",
+            ]),
+      revenueGross: readNumber(row, [
+        "revenueGross",
+        "revenue_gross",
+        "grossRevenue",
+        "gross_revenue",
+        "revenue",
+        "earnings",
+      ]),
+      revenueNet: readNumber(row, [
+        "revenueNet",
+        "revenue_net",
+        "netRevenue",
+        "net_revenue",
+        "net",
+        "revenue",
+      ]),
+      views: readInteger(row, [
+        "views",
+        "pageviews",
+        "page_views",
+        "impressions",
+        "ad_impressions",
+      ]),
+      rpm: readNumber(row, ["rpm", "pageRpm", "page_rpm", "ecpm", "eCPM"]),
+      currency:
+        readString(row, ["currency", "currencyCode", "currency_code"]) ?? "BRL",
+      rawJson: row,
+    };
+  });
 }
 
 export async function syncActiveViewRevenue({
@@ -198,6 +254,7 @@ export async function syncActiveViewRevenue({
       authToken: true,
       domain: true,
       networkCode: true,
+      kvpKey: true,
     },
   });
 
@@ -209,13 +266,15 @@ export async function syncActiveViewRevenue({
     authToken: decryptToken(connection.authToken),
     dateFrom,
     dateTo,
-    domain: connection.domain,
+    domain: normalizeActiveViewDomain(connection.domain),
     networkCode: connection.networkCode,
+    kvpKey: connection.kvpKey,
   });
   const revenueRows = normalizeActiveViewResponse(payload, {
     dateFrom,
-    domain: connection.domain,
+    domain: normalizeActiveViewDomain(connection.domain),
     networkCode: connection.networkCode,
+    kvpKey: connection.kvpKey,
   });
   const dailyRevenue = new Map<
     string,
@@ -283,6 +342,15 @@ export async function syncActiveViewRevenue({
     }
   }
 
+  await persistGamRevenueRows({
+    dateFrom,
+    dateTo,
+    gamConnectionId,
+    projectId,
+    rows: revenueRows,
+    userId,
+  });
+
   for (const row of dailyRevenue.values()) {
     await prisma.gamRevenueDaily.upsert({
       where: {
@@ -319,24 +387,88 @@ export async function syncActiveViewRevenue({
     debug: {
       ...debug,
       rowCount: count,
+      revenueTotal: revenueRows.reduce(
+        (total, row) => total + row.revenueNet,
+        0,
+      ),
+      campaignsMatched: countMatchedCampaigns(revenueRows),
     },
   };
+}
+
+async function persistGamRevenueRows({
+  dateFrom,
+  dateTo,
+  gamConnectionId,
+  projectId,
+  rows,
+  userId,
+}: {
+  dateFrom: Date;
+  dateTo: Date;
+  gamConnectionId: string;
+  projectId: string;
+  rows: NormalizedActiveViewRevenue[];
+  userId: string;
+}) {
+  await prisma.gamRevenueRow.deleteMany({
+    where: {
+      userId,
+      projectId,
+      gamConnectionId,
+      date: {
+        gte: dateFrom,
+        lte: dateTo,
+      },
+    },
+  });
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  await prisma.gamRevenueRow.createMany({
+    data: rows.map((row) => ({
+      userId,
+      projectId,
+      gamConnectionId,
+      networkCode: row.networkCode,
+      domain: row.domain,
+      date: row.date,
+      adUnit: row.adUnit,
+      country: row.country,
+      kvpKey: row.kvpKey,
+      kvpValue: row.kvpValue,
+      requestUri: row.requestUri,
+      utmSource: row.utmSource,
+      impressions: row.impressions,
+      ecpm: row.ecpm,
+      matchRate: row.matchRate,
+      responsesServed: row.responsesServed,
+      revenueGross: row.revenueGross,
+      revenueNet: row.revenueNet,
+      rawJson: row.rawJson as Prisma.InputJsonValue,
+    })),
+  });
 }
 
 function buildReportUrl({
   dateFrom,
   dateTo,
   domain,
+  kvpKey,
   networkCode,
 }: ActiveViewReportParams) {
+  const normalizedKvpKey = normalizeKvpKey(kvpKey);
   const url = new URL(
-    `${activeViewReportBaseUrl}/${encodeURIComponent(
+    `${activeViewReportBaseUrl}/kvp/${encodeURIComponent(
       networkCode,
     )}/${encodeURIComponent(domain)}`,
   );
 
   url.searchParams.set("start_date", toDateInputValue(dateFrom));
   url.searchParams.set("end_date", toDateInputValue(dateTo));
+  url.searchParams.set("key", normalizedKvpKey);
 
   return url.toString();
 }
@@ -374,7 +506,14 @@ function extractRows(payload: unknown): Record<string, unknown>[] {
     return [];
   }
 
-  for (const key of ["data", "rows", "results", "items", "report"]) {
+  for (const key of [
+    "response",
+    "data",
+    "rows",
+    "results",
+    "items",
+    "report",
+  ]) {
     const value = payload[key];
 
     if (Array.isArray(value)) {
@@ -434,6 +573,25 @@ function parseReportDate(value: string | Date) {
 
 function toDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+function normalizeActiveViewDomain(domain: string) {
+  return domain
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/$/, "");
+}
+
+function normalizeKvpKey(kvpKey?: string | null) {
+  return kvpKey?.trim() || defaultKvpKey;
+}
+
+function countMatchedCampaigns(rows: NormalizedActiveViewRevenue[]) {
+  return new Set(
+    rows
+      .map((row) => row.campaignKey ?? row.adKey)
+      .filter((value): value is string => Boolean(value)),
+  ).size;
 }
 
 function normalizeBearerToken(token: string) {

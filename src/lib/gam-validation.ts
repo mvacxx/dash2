@@ -3,6 +3,8 @@ import { z } from "zod";
 const domainRegex =
   /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
+const defaultKvpKey = "utm_campaign";
+
 const authTokenSchema = z
   .string()
   .trim()
@@ -24,6 +26,11 @@ export const gamConnectionSchema = z.object({
       (domain) => domainRegex.test(domain),
       "Informe um domínio válido, sem http ou caminho.",
     ),
+  kvpKey: z
+    .string()
+    .trim()
+    .default(defaultKvpKey)
+    .transform((value) => value || defaultKvpKey),
   authToken: authTokenSchema,
 });
 

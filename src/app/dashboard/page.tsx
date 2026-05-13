@@ -46,6 +46,20 @@ const baseMetrics = [
     icon: TrendingUp,
     badge: "Operacional",
   },
+  {
+    title: "KVP recebido",
+    value: "0 linhas",
+    description: "Linhas recebidas pelo endpoint ActiveView KVP.",
+    icon: DatabaseZap,
+    badge: "KVP",
+  },
+  {
+    title: "Campaigns matched",
+    value: "0",
+    description: "Campanhas Meta cruzadas com valores KVP.",
+    icon: BarChart3,
+    badge: "KVP",
+  },
 ];
 
 export default async function DashboardPage() {
@@ -74,16 +88,47 @@ export default async function DashboardPage() {
       ])
     : [0, null];
   const dashboardSyncRange = getDefaultSyncRange();
-  const activeViewRevenue = userId
-    ? await prisma.gamRevenueDaily.aggregate({
-        where: {
-          userId,
-        },
-        _sum: {
-          revenue: true,
-        },
-      })
-    : null;
+  const [activeViewRevenue, kvpRowsReceived, revenueMatchData] = userId
+    ? await Promise.all([
+        prisma.gamRevenueDaily.aggregate({
+          where: {
+            userId,
+          },
+          _sum: {
+            revenue: true,
+          },
+        }),
+        prisma.gamRevenueRow.count({
+          where: {
+            userId,
+          },
+        }),
+        Promise.all([
+          prisma.metaInsight.findMany({
+            where: { userId },
+            distinct: ["campaignId"],
+            select: {
+              campaignId: true,
+              campaignName: true,
+            },
+          }),
+          prisma.gamRevenueRow.findMany({
+            where: {
+              userId,
+              kvpValue: { not: "" },
+            },
+            distinct: ["kvpValue"],
+            select: {
+              kvpValue: true,
+            },
+          }),
+        ]),
+      ])
+    : [null, 0, [[], []] as const];
+  const campaignsMatched = countMatchedCampaigns(
+    revenueMatchData[0],
+    revenueMatchData[1],
+  );
   const metrics = baseMetrics.map((metric) => {
     if (metric.title === "Projetos ativos") {
       return {
@@ -93,6 +138,22 @@ export default async function DashboardPage() {
           projectCount === 0
             ? "Nenhum projeto foi criado nesta fundação inicial."
             : "Projetos criados para receber dados futuros.",
+      };
+    }
+
+    if (metric.title === "KVP recebido") {
+      return {
+        ...metric,
+        value: `${kvpRowsReceived} linha${kvpRowsReceived === 1 ? "" : "s"}`,
+        description: `Revenue total: ${formatCurrency(activeViewRevenue?._sum.revenue ?? 0)}.`,
+      };
+    }
+
+    if (metric.title === "Campaigns matched") {
+      return {
+        ...metric,
+        value: String(campaignsMatched),
+        description: "Campanhas encontradas por ad_id ou utm_campaign.",
       };
     }
 
@@ -143,7 +204,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {metrics.map((metric) => (
           <MetricCard
             badge={metric.badge}
@@ -197,6 +258,26 @@ export default async function DashboardPage() {
       </section>
     </PageContainer>
   );
+}
+
+function countMatchedCampaigns(
+  campaigns: { campaignId: string; campaignName: string }[],
+  revenueRows: { kvpValue: string }[],
+) {
+  const campaignKeys = new Set(
+    campaigns.flatMap((campaign) => [
+      normalizeKey(campaign.campaignId),
+      normalizeKey(campaign.campaignName),
+    ]),
+  );
+
+  return revenueRows.filter((row) =>
+    campaignKeys.has(normalizeKey(row.kvpValue)),
+  ).length;
+}
+
+function normalizeKey(value: string) {
+  return value.trim().toLowerCase();
 }
 
 function formatCurrency(value: number) {

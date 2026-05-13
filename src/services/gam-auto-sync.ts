@@ -7,6 +7,7 @@ const activeViewReportBaseUrl = "https://external-api.activeview.app/report";
 const syncDebounceMs = 15 * 60 * 1000;
 const defaultSyncLookbackDays = 7;
 const payloadSampleLength = 1600;
+const defaultKvpKey = "utm_campaign";
 
 const revenueFieldCandidates = [
   "revenue",
@@ -45,9 +46,12 @@ type ConnectionSyncResult = {
   domain: string;
   durationMs: number;
   networkCode: string;
+  kvpKey: string;
   projectId: string;
   rowsInserted: number;
   rowsReceived: number;
+  revenueTotal: number;
+  campaignsMatched: number;
   skipped: boolean;
   status: "success" | "error";
   url: string | null;
@@ -83,6 +87,14 @@ type NormalizedGamRevenueRow = {
   date: Date;
   domain: string;
   networkCode: string;
+  kvpKey: string;
+  kvpValue: string;
+  requestUri: string;
+  utmSource: string;
+  impressions: number;
+  ecpm: number;
+  matchRate: number;
+  responsesServed: number;
   revenueGross: number;
   revenueNet: number;
   rawJson: Prisma.InputJsonValue;
@@ -121,6 +133,7 @@ export async function syncGamRevenue({
       id: true,
       lastSyncedAt: true,
       networkCode: true,
+      kvpKey: true,
       projectId: true,
     },
   });
@@ -172,6 +185,7 @@ export async function syncGamRevenue({
         dateTo: syncDateTo,
         domain: normalizeActiveViewDomain(connection.domain),
         networkCode: connection.networkCode,
+        kvpKey: connection.kvpKey,
       });
       const durationMs = Date.now() - connectionStartedAt;
 
@@ -180,6 +194,7 @@ export async function syncGamRevenue({
           dateFrom: syncDateFrom,
           domain: fetchResult.attemptedDomain,
           networkCode: connection.networkCode,
+          kvpKey: connection.kvpKey,
         }),
       );
       const rowsInserted = await persistGamRevenueRows({
@@ -209,6 +224,7 @@ export async function syncGamRevenue({
             apiPayloadSample: fetchResult.payloadSample,
             durationMs,
             httpStatus: fetchResult.status,
+            kvpKey: connection.kvpKey,
             rowsInserted,
             rowsReceived: fetchResult.responseRows.length,
             url: fetchResult.url,
@@ -224,6 +240,7 @@ export async function syncGamRevenue({
         domain: fetchResult.attemptedDomain,
         durationMs,
         networkCode: connection.networkCode,
+        kvpKey: connection.kvpKey,
         rowsInserted,
         rowsReceived: fetchResult.responseRows.length,
         url: fetchResult.url,
@@ -236,9 +253,15 @@ export async function syncGamRevenue({
         domain: fetchResult.attemptedDomain,
         durationMs,
         networkCode: connection.networkCode,
+        kvpKey: connection.kvpKey,
         projectId: connection.projectId,
         rowsInserted,
         rowsReceived: fetchResult.responseRows.length,
+        revenueTotal: normalizedRows.reduce(
+          (total, row) => total + row.revenueNet,
+          0,
+        ),
+        campaignsMatched: countMatchedCampaigns(normalizedRows),
         skipped: false,
         status: "success",
         url: fetchResult.url,
@@ -271,6 +294,7 @@ export async function syncGamRevenue({
         durationMs,
         message,
         networkCode: connection.networkCode,
+        kvpKey: connection.kvpKey,
       });
 
       results.push({
@@ -280,9 +304,12 @@ export async function syncGamRevenue({
         domain: connection.domain,
         durationMs,
         networkCode: connection.networkCode,
+        kvpKey: connection.kvpKey,
         projectId: connection.projectId,
         rowsInserted: 0,
         rowsReceived: 0,
+        revenueTotal: 0,
+        campaignsMatched: 0,
         skipped: false,
         status: "error",
         url: null,
@@ -335,19 +362,29 @@ async function fetchActiveViewReport({
   dateFrom,
   dateTo,
   domain,
+  kvpKey,
   networkCode,
 }: {
   bearerToken: string;
   dateFrom: Date;
   dateTo: Date;
   domain: string;
+  kvpKey?: string | null;
   networkCode: string;
 }): Promise<ActiveViewFetchResult> {
-  const url = buildReportUrl({ dateFrom, dateTo, domain, networkCode });
+  const normalizedKvpKey = normalizeKvpKey(kvpKey);
+  const url = buildReportUrl({
+    dateFrom,
+    dateTo,
+    domain,
+    kvpKey: normalizedKvpKey,
+    networkCode,
+  });
   console.log("[ACTIVEVIEW REQUEST]", {
     url,
     networkCode,
     domain,
+    key: normalizedKvpKey,
     start_date: toDateInputValue(dateFrom),
     end_date: toDateInputValue(dateTo),
     authorization: "Bearer ***",
@@ -379,6 +416,13 @@ async function fetchActiveViewReport({
     status: response.status,
     rawResponse,
     rowsCount: responseRows.length,
+  });
+
+  console.info("[KVP SYNC]", {
+    endpoint: url,
+    key: normalizedKvpKey,
+    rows: responseRows.length,
+    sample: getPayloadSample(rawResponse),
   });
 
   console.info("[GAM Sync] ActiveView full response", {
@@ -445,6 +489,14 @@ async function persistGamRevenueRows({
       date: row.date,
       adUnit: row.adUnit,
       country: row.country,
+      kvpKey: row.kvpKey,
+      kvpValue: row.kvpValue,
+      requestUri: row.requestUri,
+      utmSource: row.utmSource,
+      impressions: row.impressions,
+      ecpm: row.ecpm,
+      matchRate: row.matchRate,
+      responsesServed: row.responsesServed,
       revenueGross: row.revenueGross,
       revenueNet: row.revenueNet,
       rawJson: row.rawJson,
@@ -521,8 +573,10 @@ function normalizeGamRevenueRow(
     dateFrom: Date;
     domain: string;
     networkCode: string;
+    kvpKey?: string | null;
   },
 ): NormalizedGamRevenueRow {
+  const kvpKey = normalizeKvpKey(fallback.kvpKey);
   const netRevenue = readNumber(row, [...netRevenueFieldCandidates]);
   const grossRevenue = readNumber(row, [...grossRevenueFieldCandidates]);
 
@@ -553,6 +607,15 @@ function normalizeGamRevenueRow(
         "network",
         "network_id",
       ]) ?? fallback.networkCode,
+    kvpKey,
+    kvpValue: readString(row, [kvpKey]) ?? "",
+    requestUri:
+      readString(row, ["request_uri", "requestUri", "uri", "url"]) ?? "",
+    utmSource: readString(row, ["utm_source", "utmSource", "source"]) ?? "",
+    impressions: readInteger(row, ["impressions", "ad_impressions", "views"]),
+    ecpm: readNumber(row, ["ecpm", "eCPM", "rpm"]),
+    matchRate: readNumber(row, ["match_rate", "matchRate"]),
+    responsesServed: readInteger(row, ["responses_served", "responsesServed"]),
     revenueGross: grossRevenue || netRevenue,
     revenueNet: netRevenue || grossRevenue,
     rawJson: row as Prisma.InputJsonValue,
@@ -563,21 +626,24 @@ function buildReportUrl({
   dateFrom,
   dateTo,
   domain,
+  kvpKey,
   networkCode,
 }: {
   dateFrom: Date;
   dateTo: Date;
   domain: string;
+  kvpKey: string;
   networkCode: string;
 }) {
   const url = new URL(
-    `${activeViewReportBaseUrl}/${encodeURIComponent(
+    `${activeViewReportBaseUrl}/kvp/${encodeURIComponent(
       networkCode,
     )}/${encodeURIComponent(domain)}`,
   );
 
   url.searchParams.set("start_date", toDateInputValue(dateFrom));
   url.searchParams.set("end_date", toDateInputValue(dateTo));
+  url.searchParams.set("key", kvpKey);
 
   return url.toString();
 }
@@ -586,6 +652,7 @@ function buildSyncLogMessage({
   apiPayloadSample,
   durationMs,
   httpStatus,
+  kvpKey,
   rowsInserted,
   rowsReceived,
   url,
@@ -593,11 +660,13 @@ function buildSyncLogMessage({
   apiPayloadSample: string;
   durationMs: number;
   httpStatus: number;
+  kvpKey: string;
   rowsInserted: number;
   rowsReceived: number;
   url: string;
 }) {
   return [
+    `KVP key: ${kvpKey}.`,
     `Rows received: ${rowsReceived}.`,
     `Rows inserted: ${rowsInserted}.`,
     `Sync duration: ${durationMs}ms.`,
@@ -621,12 +690,34 @@ function getPayloadSample(rawResponse: string) {
 }
 
 function getResponseRows(payload: unknown) {
-  const rows =
-    isRecord(payload) && Array.isArray(payload.response)
-      ? payload.response
-      : [];
+  if (Array.isArray(payload)) {
+    return payload.filter(isRecord);
+  }
 
-  return rows.filter(isRecord);
+  if (!isRecord(payload)) {
+    return [];
+  }
+
+  for (const key of [
+    "response",
+    "data",
+    "rows",
+    "results",
+    "items",
+    "report",
+  ]) {
+    const value = payload[key];
+
+    if (Array.isArray(value)) {
+      return value.filter(isRecord);
+    }
+
+    if (isRecord(value) && Array.isArray(value.rows)) {
+      return value.rows.filter(isRecord);
+    }
+  }
+
+  return [];
 }
 
 function parseJsonPayload(rawResponse: string) {
@@ -655,6 +746,10 @@ function readString(row: Record<string, unknown>, keys: string[]) {
   }
 
   return undefined;
+}
+
+function readInteger(row: Record<string, unknown>, keys: string[]) {
+  return Math.trunc(readNumber(row, keys));
 }
 
 function readNumber(row: Record<string, unknown>, keys: string[]) {
@@ -697,6 +792,18 @@ function parseReportDate(value: string | Date) {
   }
 
   return new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+}
+
+function normalizeKvpKey(kvpKey?: string | null) {
+  return kvpKey?.trim() || defaultKvpKey;
+}
+
+function countMatchedCampaigns(rows: NormalizedGamRevenueRow[]) {
+  return new Set(
+    rows
+      .map((row) => row.kvpValue)
+      .filter((value): value is string => Boolean(value)),
+  ).size;
 }
 
 function normalizeBearerToken(token: string) {

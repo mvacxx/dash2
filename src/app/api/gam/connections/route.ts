@@ -15,6 +15,7 @@ function serializeGamConnection(connection: {
   projectId: string;
   networkCode: string;
   domain: string;
+  kvpKey: string;
   createdAt: Date;
   updatedAt: Date;
   project?: {

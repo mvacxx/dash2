@@ -47,6 +47,14 @@ export default async function GamSyncDebugPage() {
       select: {
         adUnit: true,
         country: true,
+        kvpKey: true,
+        kvpValue: true,
+        requestUri: true,
+        utmSource: true,
+        impressions: true,
+        ecpm: true,
+        matchRate: true,
+        responsesServed: true,
         createdAt: true,
         date: true,
         domain: true,
@@ -142,13 +150,18 @@ export default async function GamSyncDebugPage() {
                       {row.domain} · {row.networkCode}
                     </h2>
                     <p className="mt-1 text-sm text-slate-400">
-                      {formatDate(row.date)} · Ad unit: {row.adUnit || "—"} ·
-                      País: {row.country || "—"}
+                      {formatDate(row.date)} · KVP: {row.kvpKey}=
+                      {row.kvpValue || "—"} · Ad unit: {row.adUnit || "—"} ·
+                      URI: {row.requestUri || "—"}
                     </p>
                   </div>
                   <div className="text-right text-sm text-slate-300">
                     <p>Gross: {formatCurrency(row.revenueGross)}</p>
                     <p>Net: {formatCurrency(row.revenueNet)}</p>
+                    <p>Impressions: {row.impressions}</p>
+                    <p>eCPM: {row.ecpm}</p>
+                    <p>Match rate: {row.matchRate}</p>
+                    <p>Responses served: {row.responsesServed}</p>
                   </div>
                 </div>
                 <pre className="mt-4 max-h-80 overflow-auto rounded-2xl border border-white/10 bg-black/30 p-4 text-xs leading-5 text-slate-300">
@@ -208,6 +221,7 @@ function parseSyncDebugMessage(message?: string | null) {
   return {
     httpStatus: matchDebugValue(message, /HTTP status: ([^.]+)\./),
     rowsReceived: matchDebugValue(message, /Rows received: ([^.]+)\./),
+    key: matchDebugValue(message, /KVP key: ([^.]+)\./),
     url: matchDebugValue(message, /URL: (.*?)\. API payload sample:/),
   };
 }

@@ -135,6 +135,13 @@ export async function POST(request: NextRequest) {
 }
 
 function logActiveViewSyncDebug(debug: ActiveViewSyncDebug) {
+  console.info("[KVP SYNC]", {
+    endpoint: debug.url,
+    key: debug.key,
+    rows: debug.rowCount,
+    sample: debug.rawResponseSummary,
+  });
+
   console.info("[GAM Sync] ActiveView request", {
     url: debug.url,
     domain: debug.domain,
@@ -144,6 +151,9 @@ function logActiveViewSyncDebug(debug: ActiveViewSyncDebug) {
     authorization: debug.authorization,
     httpStatus: debug.httpStatus,
     rawResponse: debug.rawResponse,
+    key: debug.key,
+    revenueTotal: debug.revenueTotal,
+    campaignsMatched: debug.campaignsMatched,
   });
 }
 

@@ -11,6 +11,8 @@ type SyncTriggerResponse = {
   accounts?: number;
   gamConnections?: number;
   gamRows?: number;
+  gamRevenueTotal?: number;
+  gamCampaignsMatched?: number;
   metaRows?: number;
   rows?: number;
   syncSince?: string;
