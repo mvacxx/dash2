@@ -361,7 +361,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                   />
                   <DashboardMetricCard
                     icon={CircleDollarSign}
-                    description="Receita líquida após 10% ActiveView e 9% imposto"
+                    description="Receita líquida após 10% ActiveView e 11% imposto sobre o GAM bruto"
                     label="Receita GAM"
                     tone="positive"
                     value={formatCurrency(report.totals.revenueNet)}
@@ -370,7 +370,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                     icon={
                       report.totals.roi >= 0 ? ArrowUpRight : ArrowDownRight
                     }
-                    description={`Lucro líquido: ${formatCurrency(report.totals.profit)}`}
+                    description={`Lucro líquido usando custo total Facebook: ${formatCurrency(report.totals.profit)}`}
                     label="ROI"
                     tone={report.totals.roi >= 0 ? "positive" : "negative"}
                     value={`${formatNumber(report.totals.roi)}%`}
@@ -405,30 +405,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                   </summary>
                   <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <DetailItem
-                      label="Gasto Meta original USD"
-                      value={formatCurrency(
-                        report.totals.metaSpendOriginal,
-                        "USD",
-                      )}
-                    />
-                    <DetailItem
-                      label="Dólar usado"
-                      value={formatNumber(report.totals.dollarExchangeRate)}
-                    />
-                    <DetailItem
-                      label="Gasto Meta convertido BRL"
-                      value={formatCurrency(report.totals.metaSpendBRL)}
-                    />
-                    <DetailItem
-                      label="Imposto Meta 13,83%"
-                      value={formatCurrency(report.totals.metaTax)}
-                    />
-                    <DetailItem
-                      label="Valor gasto final"
-                      value={formatCurrency(report.totals.spend)}
-                    />
-                    <DetailItem
-                      label="Receita GAM bruta"
+                      label="GAM bruto"
                       value={formatCurrency(report.totals.revenueGross)}
                     />
                     <DetailItem
@@ -436,12 +413,28 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                       value={`-${formatCurrency(gamRevenueBreakdown.activeViewDiscount)}`}
                     />
                     <DetailItem
-                      label="Imposto Receita 9%"
+                      label="11% imposto"
                       value={`-${formatCurrency(gamRevenueBreakdown.tax)}`}
                     />
                     <DetailItem
-                      label="Receita GAM líquida"
+                      label="Receita líquida GAM"
                       value={formatCurrency(report.totals.revenueNet)}
+                    />
+                    <DetailItem
+                      label="Gasto Facebook"
+                      value={formatCurrency(report.totals.spend)}
+                    />
+                    <DetailItem
+                      label="Imposto Facebook 13,83%"
+                      value={formatCurrency(report.totals.metaTax)}
+                    />
+                    <DetailItem
+                      label="Custo total Facebook"
+                      value={formatCurrency(report.totals.costTotalFacebook)}
+                    />
+                    <DetailItem
+                      label="Lucro líquido"
+                      value={formatCurrency(report.totals.profit)}
                     />
                   </div>
                 </details>
@@ -454,7 +447,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                         Gráfico ROI & Lucro
                       </h2>
                       <p className="mt-1 text-sm text-slate-400">
-                        Usa valor gasto final e receita GAM líquida no período
+                        Usa custo total Facebook e receita GAM líquida no período
                         selecionado.
                       </p>
                     </div>
@@ -480,7 +473,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                         Tabela diária
                       </h2>
                       <p className="mt-1 text-sm text-slate-400">
-                        Gasto final, receita líquida, lucro e ROI por dia.
+                        Gasto Facebook, receita líquida, lucro e ROI por dia.
                       </p>
                     </div>
                     <p className="text-sm text-slate-500">
@@ -492,7 +485,8 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                       <thead className="bg-white/[0.03] text-xs uppercase tracking-wide text-slate-500">
                         <tr>
                           <th className="px-4 py-4">Dia</th>
-                          <th className="px-4 py-4">Valor gasto</th>
+                          <th className="px-4 py-4">Gasto Facebook</th>
+                          <th className="px-4 py-4">Custo total Facebook</th>
                           <th className="px-4 py-4">Receita GAM</th>
                           <th className="px-4 py-4">Lucro</th>
                           <th className="px-4 py-4">ROI</th>
@@ -504,7 +498,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                           <tr>
                             <td
                               className="px-4 py-10 text-center text-slate-500"
-                              colSpan={6}
+                              colSpan={7}
                             >
                               Nenhum dado diário encontrado para os filtros
                               selecionados.
@@ -521,6 +515,9 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                               </td>
                               <td className="px-4 py-4">
                                 {formatCurrency(row.spend)}
+                              </td>
+                              <td className="px-4 py-4">
+                                {formatCurrency(row.costTotalFacebook)}
                               </td>
                               <td className="px-4 py-4 text-emerald-100">
                                 {formatCurrency(row.revenueNet)}
@@ -576,7 +573,8 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                       <thead className="bg-white/[0.03] text-xs uppercase tracking-wide text-slate-500">
                         <tr>
                           <th className="px-4 py-4">Campanha</th>
-                          <th className="px-4 py-4">Gasto total Meta</th>
+                          <th className="px-4 py-4">Gasto Facebook</th>
+                          <th className="px-4 py-4">Custo total Facebook</th>
                           <th className="px-4 py-4">Clicks</th>
                           <th className="px-4 py-4">CTR</th>
                           <th className="px-4 py-4">CPC</th>
@@ -593,7 +591,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                           <tr>
                             <td
                               className="px-4 py-10 text-center text-slate-500"
-                              colSpan={11}
+                              colSpan={12}
                             >
                               Nenhum Meta Insight encontrado para os filtros
                               selecionados.
@@ -615,6 +613,9 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                               </td>
                               <td className="px-4 py-4 font-medium text-white">
                                 {formatCurrency(row.spend)}
+                              </td>
+                              <td className="px-4 py-4">
+                                {formatCurrency(row.costTotalFacebook)}
                               </td>
                               <td className="px-4 py-4">
                                 {row.clicks.toLocaleString("pt-BR")}
@@ -711,6 +712,18 @@ function DashboardMetricCard({
       {description ? (
         <p className="mt-2 text-xs leading-5 text-slate-400">{description}</p>
       ) : null}
+    </div>
+  );
+}
+
+
+function DetailItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-lg font-semibold text-white">{value}</p>
     </div>
   );
 }
@@ -857,6 +870,30 @@ function isPreset(value?: string): value is DatePreset {
 
 function isDateInput(value?: string): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+function getInclusiveDayCount(dateFrom: string, dateTo: string) {
+  const start = new Date(`${dateFrom}T00:00:00.000Z`);
+  const end = new Date(`${dateTo}T00:00:00.000Z`);
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return 1;
+  }
+
+  return Math.max(1, Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay) + 1);
+}
+
+function getDaysInMonth(dateValue: string) {
+  const date = new Date(`${dateValue}T00:00:00.000Z`);
+
+  if (Number.isNaN(date.getTime())) {
+    return 30;
+  }
+
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0),
+  ).getUTCDate();
 }
 
 function toDateInputValue(date: Date) {

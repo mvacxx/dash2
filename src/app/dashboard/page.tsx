@@ -36,7 +36,7 @@ const baseMetrics = [
   {
     title: "Receita GAM líquida",
     value: "R$ 0,00",
-    description: "Receita líquida após 10% ActiveView e 9% imposto.",
+    description: "Receita líquida após 10% ActiveView e 11% imposto.",
     icon: CircleDollarSign,
     badge: "Manual",
   },
@@ -76,16 +76,16 @@ const baseMetrics = [
     badge: "Desconto",
   },
   {
-    title: "Imposto 9%",
+    title: "Imposto 11%",
     value: "R$ 0,00",
-    description: "9% aplicado após o desconto ActiveView.",
+    description: "11% descontado sobre a receita bruta GAM.",
     icon: TrendingUp,
     badge: "Imposto",
   },
   {
     title: "Receita líquida final",
     value: "R$ 0,00",
-    description: "Receita líquida após 10% ActiveView e 9% imposto.",
+    description: "Receita líquida após 10% ActiveView e 11% imposto.",
     icon: CircleDollarSign,
     badge: "Líquida",
   },
@@ -162,8 +162,7 @@ export default async function DashboardPage() {
   const gamRevenueBreakdown = calculateGamRevenueBreakdown(
     gamRevenueTotals?._sum.revenueGross ?? 0,
   );
-  const gamNetRevenue =
-    gamRevenueTotals?._sum.revenueNet ?? gamRevenueBreakdown.netRevenue;
+  const gamNetRevenue = gamRevenueBreakdown.netRevenue;
   const metrics = baseMetrics.map((metric) => {
     if (metric.title === "Projetos ativos") {
       return {
@@ -196,7 +195,7 @@ export default async function DashboardPage() {
       return {
         ...metric,
         value: formatCurrency(gamNetRevenue),
-        description: "Receita líquida após 10% ActiveView e 9% imposto.",
+        description: "Receita líquida após 10% ActiveView e 11% imposto.",
         badge: "Líquida",
       };
     }
@@ -215,7 +214,7 @@ export default async function DashboardPage() {
       };
     }
 
-    if (metric.title === "Imposto 9%") {
+    if (metric.title === "Imposto 11%") {
       return {
         ...metric,
         value: `-${formatCurrency(gamRevenueBreakdown.tax)}`,

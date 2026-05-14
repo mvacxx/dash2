@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  calculateGamNetRevenue,
   calculateMetaSpendBreakdown,
   defaultDollarExchangeRate,
 } from "@/lib/revenue";
@@ -28,6 +29,7 @@ export type CampaignRoiReportRow = {
   dollarExchangeRate: number;
   metaSpendBRL: number;
   metaTax: number;
+  costTotalFacebook: number;
   clicks: number;
   impressions: number;
   cpc: number;
@@ -49,6 +51,7 @@ export type CampaignRoiDailyRow = {
   dollarExchangeRate: number;
   metaSpendBRL: number;
   metaTax: number;
+  costTotalFacebook: number;
   revenueGross: number;
   revenueNet: number;
   profit: number;
@@ -250,25 +253,27 @@ function buildCampaignRows({
       campaign.spend,
       dollarExchangeRate,
     );
-    const profit = revenue.revenueNet - spend.totalSpend;
-    const roi = spend.totalSpend > 0 ? (profit / spend.totalSpend) * 100 : 0;
+    const costTotalFacebook = spend.totalSpend;
+    const profit = revenue.revenueNet - costTotalFacebook;
+    const roi = costTotalFacebook > 0 ? (profit / costTotalFacebook) * 100 : 0;
     const roas =
-      spend.totalSpend > 0 ? revenue.revenueNet / spend.totalSpend : 0;
+      costTotalFacebook > 0 ? revenue.revenueNet / costTotalFacebook : 0;
 
     return {
       campaignId: campaign.campaignId,
       campaignName: campaign.campaignName,
-      spend: spend.totalSpend,
+      spend: spend.convertedSpend,
       metaSpendOriginal: spend.grossSpendUsd,
       dollarExchangeRate: spend.dollarExchangeRate,
       metaSpendBRL: spend.convertedSpend,
       metaTax: spend.metaTax,
+      costTotalFacebook,
       clicks: campaign.clicks,
       impressions: campaign.impressions,
-      cpc: campaign.clicks > 0 ? spend.totalSpend / campaign.clicks : 0,
+      cpc: campaign.clicks > 0 ? spend.convertedSpend / campaign.clicks : 0,
       cpm:
         campaign.impressions > 0
-          ? (spend.totalSpend / campaign.impressions) * 1000
+          ? (spend.convertedSpend / campaign.impressions) * 1000
           : 0,
       ctr:
         campaign.impressions > 0
@@ -316,6 +321,7 @@ function buildDailyRows({
       dollarExchangeRate: number;
       metaSpendBRL: number;
       metaTax: number;
+      costTotalFacebook: number;
       revenueGross: number;
       revenueNet: number;
       profit: number;
@@ -334,10 +340,11 @@ function buildDailyRows({
       dollarExchangeRate,
     );
 
-    current.spend += spend.totalSpend;
+    current.spend += spend.convertedSpend;
     current.metaSpendOriginal += spend.grossSpendUsd;
     current.metaSpendBRL += spend.convertedSpend;
     current.metaTax += spend.metaTax;
+    current.costTotalFacebook += spend.totalSpend;
     current.dollarExchangeRate = spend.dollarExchangeRate;
     campaignIds.add(insight.campaignId);
     dailyRows.set(date, current);
@@ -367,10 +374,15 @@ function buildDailyRows({
       current.revenueNet += revenue.revenueNet;
     }
 
-    current.profit = current.revenueNet - current.spend;
+    current.profit = current.revenueNet - current.costTotalFacebook;
     current.roi =
-      current.spend > 0 ? (current.profit / current.spend) * 100 : 0;
-    current.roas = current.spend > 0 ? current.revenueNet / current.spend : 0;
+      current.costTotalFacebook > 0
+        ? (current.profit / current.costTotalFacebook) * 100
+        : 0;
+    current.roas =
+      current.costTotalFacebook > 0
+        ? current.revenueNet / current.costTotalFacebook
+        : 0;
     dailyRows.set(date, current);
   }
 
@@ -389,6 +401,7 @@ function calculateTotals(
       accumulator.metaSpendOriginal += row.metaSpendOriginal;
       accumulator.metaSpendBRL += row.metaSpendBRL;
       accumulator.metaTax += row.metaTax;
+      accumulator.costTotalFacebook += row.costTotalFacebook;
       accumulator.dollarExchangeRate = row.dollarExchangeRate;
       accumulator.clicks += row.clicks;
       accumulator.impressions += row.impressions;
@@ -403,6 +416,7 @@ function calculateTotals(
       dollarExchangeRate,
       metaSpendBRL: 0,
       metaTax: 0,
+      costTotalFacebook: 0,
       clicks: 0,
       impressions: 0,
       cpc: 0,
@@ -421,8 +435,14 @@ function calculateTotals(
     totals.impressions > 0 ? (totals.spend / totals.impressions) * 1000 : 0;
   totals.ctr =
     totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
-  totals.roi = totals.spend > 0 ? (totals.profit / totals.spend) * 100 : 0;
-  totals.roas = totals.spend > 0 ? totals.revenueNet / totals.spend : 0;
+  totals.roi =
+    totals.costTotalFacebook > 0
+      ? (totals.profit / totals.costTotalFacebook) * 100
+      : 0;
+  totals.roas =
+    totals.costTotalFacebook > 0
+      ? totals.revenueNet / totals.costTotalFacebook
+      : 0;
 
   return totals;
 }
@@ -473,7 +493,7 @@ function getMappedRevenueForCampaign(
 
       if (hasMatch) {
         accumulator.revenueGross += revenue.revenueGross;
-        accumulator.revenueNet += revenue.revenueNet;
+        accumulator.revenueNet += calculateGamNetRevenue(revenue.revenueGross);
       }
 
       return accumulator;
@@ -546,6 +566,7 @@ function createEmptyDailyRow(date: string): CampaignRoiDailyRow {
     dollarExchangeRate: defaultDollarExchangeRate,
     metaSpendBRL: 0,
     metaTax: 0,
+    costTotalFacebook: 0,
     revenueGross: 0,
     revenueNet: 0,
     profit: 0,
