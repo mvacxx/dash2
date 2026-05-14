@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { defaultDollarExchangeRate } from "@/lib/revenue";
 import { generateCampaignRoiReport } from "@/services/roi-service";
 
 export async function GET(request: NextRequest) {
@@ -17,6 +18,9 @@ export async function GET(request: NextRequest) {
   const metaAccountId = searchParams.get("metaAccountId")?.trim() || undefined;
   const dateFromParam = searchParams.get("dateFrom")?.trim();
   const dateToParam = searchParams.get("dateTo")?.trim();
+  const dollarExchangeRate = parseDollarExchangeRate(
+    searchParams.get("dollarExchangeRate")?.trim(),
+  );
 
   if (!projectId) {
     return NextResponse.json(
@@ -92,9 +96,22 @@ export async function GET(request: NextRequest) {
     metaAccountId,
     dateFrom,
     dateTo,
+    dollarExchangeRate,
   });
 
   return NextResponse.json({ report });
+}
+
+function parseDollarExchangeRate(value?: string) {
+  if (!value) {
+    return defaultDollarExchangeRate;
+  }
+
+  const parsed = Number(value.replace(",", "."));
+
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : defaultDollarExchangeRate;
 }
 
 function parseDateBoundary(value: string, boundary: "start" | "end") {

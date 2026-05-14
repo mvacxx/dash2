@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import {
+  calculateMetaSpendBreakdown,
+  defaultDollarExchangeRate,
+} from "@/lib/revenue";
 
 export type CampaignRoiStatus =
   | "UNMAPPED"
@@ -13,12 +17,17 @@ export type GenerateCampaignRoiReportParams = {
   metaAccountId?: string;
   dateFrom: Date;
   dateTo: Date;
+  dollarExchangeRate?: number;
 };
 
 export type CampaignRoiReportRow = {
   campaignId: string;
   campaignName: string;
   spend: number;
+  metaSpendOriginal: number;
+  dollarExchangeRate: number;
+  metaSpendBRL: number;
+  metaTax: number;
   clicks: number;
   impressions: number;
   cpc: number;
@@ -36,6 +45,10 @@ export type CampaignRoiReportRow = {
 export type CampaignRoiDailyRow = {
   date: string;
   spend: number;
+  metaSpendOriginal: number;
+  dollarExchangeRate: number;
+  metaSpendBRL: number;
+  metaTax: number;
   revenueGross: number;
   revenueNet: number;
   profit: number;
@@ -89,6 +102,7 @@ type RevenueRow = {
 export async function generateCampaignRoiReport({
   dateFrom,
   dateTo,
+  dollarExchangeRate = defaultDollarExchangeRate,
   metaAccountId,
   projectId,
   userId,
@@ -163,13 +177,15 @@ export async function generateCampaignRoiReport({
   const rows = buildCampaignRows({
     insightsByCampaignId,
     mappingByCampaignId,
+    dollarExchangeRate,
     revenueRows: typedRevenueRows,
   });
-  const totals = calculateTotals(rows);
+  const totals = calculateTotals(rows, dollarExchangeRate);
   const statusTotals = calculateStatusTotals(rows);
   const dailyRows = buildDailyRows({
     insights: typedInsights,
     mappingByCampaignId,
+    dollarExchangeRate,
     revenueRows: typedRevenueRows,
   });
 
@@ -219,8 +235,10 @@ function groupInsightsByCampaign(insights: InsightRow[]) {
 function buildCampaignRows({
   insightsByCampaignId,
   mappingByCampaignId,
+  dollarExchangeRate,
   revenueRows,
 }: {
+  dollarExchangeRate: number;
   insightsByCampaignId: ReturnType<typeof groupInsightsByCampaign>;
   mappingByCampaignId: Map<string, MappingRow>;
   revenueRows: RevenueRow[];
@@ -228,20 +246,29 @@ function buildCampaignRows({
   const rows = Array.from(insightsByCampaignId.values()).map((campaign) => {
     const mapping = mappingByCampaignId.get(campaign.campaignId);
     const revenue = getMappedRevenueForCampaign(campaign, mapping, revenueRows);
-    const profit = revenue.revenueNet - campaign.spend;
-    const roi = campaign.spend > 0 ? (profit / campaign.spend) * 100 : 0;
-    const roas = campaign.spend > 0 ? revenue.revenueNet / campaign.spend : 0;
+    const spend = calculateMetaSpendBreakdown(
+      campaign.spend,
+      dollarExchangeRate,
+    );
+    const profit = revenue.revenueNet - spend.totalSpend;
+    const roi = spend.totalSpend > 0 ? (profit / spend.totalSpend) * 100 : 0;
+    const roas =
+      spend.totalSpend > 0 ? revenue.revenueNet / spend.totalSpend : 0;
 
     return {
       campaignId: campaign.campaignId,
       campaignName: campaign.campaignName,
-      spend: campaign.spend,
+      spend: spend.totalSpend,
+      metaSpendOriginal: spend.grossSpendUsd,
+      dollarExchangeRate: spend.dollarExchangeRate,
+      metaSpendBRL: spend.convertedSpend,
+      metaTax: spend.metaTax,
       clicks: campaign.clicks,
       impressions: campaign.impressions,
-      cpc: campaign.clicks > 0 ? campaign.spend / campaign.clicks : 0,
+      cpc: campaign.clicks > 0 ? spend.totalSpend / campaign.clicks : 0,
       cpm:
         campaign.impressions > 0
-          ? (campaign.spend / campaign.impressions) * 1000
+          ? (spend.totalSpend / campaign.impressions) * 1000
           : 0,
       ctr:
         campaign.impressions > 0
@@ -271,8 +298,10 @@ function buildCampaignRows({
 function buildDailyRows({
   insights,
   mappingByCampaignId,
+  dollarExchangeRate,
   revenueRows,
 }: {
+  dollarExchangeRate: number;
   insights: InsightRow[];
   mappingByCampaignId: Map<string, MappingRow>;
   revenueRows: RevenueRow[];
@@ -283,6 +312,10 @@ function buildDailyRows({
     {
       date: string;
       spend: number;
+      metaSpendOriginal: number;
+      dollarExchangeRate: number;
+      metaSpendBRL: number;
+      metaTax: number;
       revenueGross: number;
       revenueNet: number;
       profit: number;
@@ -296,7 +329,16 @@ function buildDailyRows({
     const current = dailyRows.get(date) ?? createEmptyDailyRow(date);
     const campaignIds = campaignIdsByDate.get(date) ?? new Set<string>();
 
-    current.spend += insight.spend;
+    const spend = calculateMetaSpendBreakdown(
+      insight.spend,
+      dollarExchangeRate,
+    );
+
+    current.spend += spend.totalSpend;
+    current.metaSpendOriginal += spend.grossSpendUsd;
+    current.metaSpendBRL += spend.convertedSpend;
+    current.metaTax += spend.metaTax;
+    current.dollarExchangeRate = spend.dollarExchangeRate;
     campaignIds.add(insight.campaignId);
     dailyRows.set(date, current);
     campaignIdsByDate.set(date, campaignIds);
@@ -337,10 +379,17 @@ function buildDailyRows({
   );
 }
 
-function calculateTotals(rows: CampaignRoiReportRow[]) {
+function calculateTotals(
+  rows: CampaignRoiReportRow[],
+  dollarExchangeRate: number,
+) {
   const totals = rows.reduce<CampaignRoiReport["totals"]>(
     (accumulator, row) => {
       accumulator.spend += row.spend;
+      accumulator.metaSpendOriginal += row.metaSpendOriginal;
+      accumulator.metaSpendBRL += row.metaSpendBRL;
+      accumulator.metaTax += row.metaTax;
+      accumulator.dollarExchangeRate = row.dollarExchangeRate;
       accumulator.clicks += row.clicks;
       accumulator.impressions += row.impressions;
       accumulator.revenueGross += row.revenueGross;
@@ -350,6 +399,10 @@ function calculateTotals(rows: CampaignRoiReportRow[]) {
     },
     {
       spend: 0,
+      metaSpendOriginal: 0,
+      dollarExchangeRate,
+      metaSpendBRL: 0,
+      metaTax: 0,
       clicks: 0,
       impressions: 0,
       cpc: 0,
@@ -489,6 +542,10 @@ function createEmptyDailyRow(date: string): CampaignRoiDailyRow {
   return {
     date,
     spend: 0,
+    metaSpendOriginal: 0,
+    dollarExchangeRate: defaultDollarExchangeRate,
+    metaSpendBRL: 0,
+    metaTax: 0,
     revenueGross: 0,
     revenueNet: 0,
     profit: 0,

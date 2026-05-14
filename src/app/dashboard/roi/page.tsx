@@ -18,10 +18,15 @@ import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageContainer } from "@/components/dashboard/page-container";
 import { RoiPerformanceChart } from "@/components/dashboard/roi-performance-chart";
+import { DollarExchangeInput } from "@/components/roi/dollar-exchange-input";
 import { Badge } from "@/components/ui/badge";
 import { SyncNowButton } from "@/components/gam/sync-now-button";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  calculateGamRevenueBreakdown,
+  defaultDollarExchangeRate,
+} from "@/lib/revenue";
 import {
   generateCampaignRoiReport,
   type CampaignRoiReportRow,
@@ -35,6 +40,7 @@ type RoiPageProps = {
     dateFrom?: string;
     dateTo?: string;
     preset?: DatePreset;
+    dollarExchangeRate?: string;
   }>;
 };
 
@@ -102,6 +108,9 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
     dateTo: params?.dateTo,
     preset: selectedPreset,
   });
+  const selectedDollarExchangeRate = parseDollarExchangeRate(
+    params?.dollarExchangeRate,
+  );
 
   const metaAccounts = selectedProjectId
     ? await prisma.metaAccount.findMany({
@@ -131,9 +140,13 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
         metaAccountId: selectedMetaAccountId,
         dateFrom: parseDateBoundary(selectedRange.dateFrom, "start"),
         dateTo: parseDateBoundary(selectedRange.dateTo, "end"),
+        dollarExchangeRate: selectedDollarExchangeRate,
       })
     : null;
   const attentionCampaigns = report ? getAttentionCampaigns(report.rows) : [];
+  const gamRevenueBreakdown = calculateGamRevenueBreakdown(
+    report?.totals.revenueGross ?? 0,
+  );
 
   return (
     <PageContainer>
@@ -188,7 +201,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
           <>
             <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30">
               <form
-                className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1.2fr_auto_auto] lg:items-end"
+                className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1.2fr_0.8fr_auto_auto] lg:items-end"
                 method="get"
               >
                 <div>
@@ -252,6 +265,10 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                     ))}
                   </select>
                 </div>
+                <DollarExchangeInput
+                  defaultValue={selectedDollarExchangeRate}
+                  storageKey={`dashzada:dollar:${selectedProjectId}:${selectedRange.dateFrom}:${selectedRange.dateTo}`}
+                />
                 <button
                   className="rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-950/40 transition hover:from-indigo-400 hover:to-blue-400"
                   type="submit"
@@ -263,7 +280,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                   dateTo={selectedRange.dateTo}
                   projectId={selectedProjectId}
                 />
-                <div className="grid gap-4 lg:col-span-5 md:grid-cols-2">
+                <div className="grid gap-4 lg:col-span-6 md:grid-cols-2">
                   <div>
                     <label
                       className="mb-2 block text-sm font-medium text-slate-200"
@@ -310,6 +327,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                       metaAccountId: selectedMetaAccountId,
                       preset,
                       projectId: selectedProjectId ?? "",
+                      dollarExchangeRate: selectedDollarExchangeRate,
                     })}
                     key={preset}
                   >
@@ -321,12 +339,57 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
 
             {report ? (
               <>
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
+                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <DashboardMetricCard
                     icon={Banknote}
-                    label="Valor gasto"
+                    label="Gasto Meta original"
+                    tone="info"
+                    value={formatCurrency(
+                      report.totals.metaSpendOriginal,
+                      "USD",
+                    )}
+                  />
+                  <DashboardMetricCard
+                    icon={Target}
+                    label="Dólar usado"
+                    tone="neutral"
+                    value={formatNumber(report.totals.dollarExchangeRate)}
+                  />
+                  <DashboardMetricCard
+                    icon={Banknote}
+                    label="Gasto convertido BRL"
+                    tone="info"
+                    value={formatCurrency(report.totals.metaSpendBRL)}
+                  />
+                  <DashboardMetricCard
+                    icon={Percent}
+                    label="Imposto Meta 13,83%"
+                    tone="warning"
+                    value={formatCurrency(report.totals.metaTax)}
+                  />
+                  <DashboardMetricCard
+                    icon={Banknote}
+                    label="Gasto total Meta"
                     tone="info"
                     value={formatCurrency(report.totals.spend)}
+                  />
+                  <DashboardMetricCard
+                    icon={CircleDollarSign}
+                    label="Receita GAM bruta"
+                    tone="neutral"
+                    value={formatCurrency(report.totals.revenueGross)}
+                  />
+                  <DashboardMetricCard
+                    icon={Percent}
+                    label="Desconto ActiveView 10%"
+                    tone="warning"
+                    value={`-${formatCurrency(gamRevenueBreakdown.activeViewDiscount)}`}
+                  />
+                  <DashboardMetricCard
+                    icon={Percent}
+                    label="Imposto Receita 9%"
+                    tone="warning"
+                    value={`-${formatCurrency(gamRevenueBreakdown.tax)}`}
                   />
                   <DashboardMetricCard
                     icon={CircleDollarSign}
@@ -470,7 +533,7 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
                       <thead className="bg-white/[0.03] text-xs uppercase tracking-wide text-slate-500">
                         <tr>
                           <th className="px-4 py-4">Campanha</th>
-                          <th className="px-4 py-4">Spend</th>
+                          <th className="px-4 py-4">Gasto total Meta</th>
                           <th className="px-4 py-4">Clicks</th>
                           <th className="px-4 py-4">CTR</th>
                           <th className="px-4 py-4">CPC</th>
@@ -692,12 +755,14 @@ function getPresetDateRange(preset: DatePreset) {
 function buildPresetHref({
   dateFrom,
   dateTo,
+  dollarExchangeRate,
   metaAccountId,
   preset,
   projectId,
 }: {
   dateFrom: string;
   dateTo: string;
+  dollarExchangeRate: number;
   metaAccountId?: string;
   preset: DatePreset;
   projectId: string;
@@ -709,6 +774,7 @@ function buildPresetHref({
     dateTo: range.dateTo,
     preset,
     projectId,
+    dollarExchangeRate: dollarExchangeRate.toFixed(2),
   });
 
   if (metaAccountId) {
@@ -716,6 +782,18 @@ function buildPresetHref({
   }
 
   return `/dashboard/roi?${params.toString()}`;
+}
+
+function parseDollarExchangeRate(value?: string) {
+  if (!value) {
+    return defaultDollarExchangeRate;
+  }
+
+  const parsed = Number(value.replace(",", "."));
+
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : defaultDollarExchangeRate;
 }
 
 function parseDateBoundary(value: string, boundary: "start" | "end") {
@@ -742,9 +820,9 @@ function toDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function formatCurrency(value: number) {
+function formatCurrency(value: number, currency = "BRL") {
   return new Intl.NumberFormat("pt-BR", {
-    currency: "BRL",
+    currency,
     style: "currency",
   }).format(value);
 }
