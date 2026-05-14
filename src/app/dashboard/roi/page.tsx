@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   Banknote,
@@ -10,7 +9,6 @@ import {
   Percent,
   Plus,
   Target,
-  TrendingDown,
   TrendingUp,
 } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -147,6 +145,21 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
   const gamRevenueBreakdown = calculateGamRevenueBreakdown(
     report?.totals.revenueGross ?? 0,
   );
+  const reportDays = report
+    ? Math.max(
+        1,
+        report.dailyRows.length ||
+          getInclusiveDayCount(selectedRange.dateFrom, selectedRange.dateTo),
+      )
+    : 1;
+  const averageSpendPerDay = report ? report.totals.spend / reportDays : 0;
+  const averageRevenuePerDay = report
+    ? report.totals.revenueNet / reportDays
+    : 0;
+  const averageProfitPerDay = report ? report.totals.profit / reportDays : 0;
+  const monthlyForecast = report
+    ? averageProfitPerDay * getDaysInMonth(selectedRange.dateTo)
+    : 0;
 
   return (
     <PageContainer>
@@ -339,175 +352,205 @@ export default async function RoiPage({ searchParams }: RoiPageProps) {
 
             {report ? (
               <>
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <section className="grid gap-4 lg:grid-cols-3">
                   <DashboardMetricCard
                     icon={Banknote}
-                    label="Gasto Meta original"
-                    tone="info"
-                    value={formatCurrency(
-                      report.totals.metaSpendOriginal,
-                      "USD",
-                    )}
-                  />
-                  <DashboardMetricCard
-                    icon={Target}
-                    label="Dólar usado"
-                    tone="neutral"
-                    value={formatNumber(report.totals.dollarExchangeRate)}
-                  />
-                  <DashboardMetricCard
-                    icon={Banknote}
-                    label="Gasto convertido BRL"
-                    tone="info"
-                    value={formatCurrency(report.totals.metaSpendBRL)}
-                  />
-                  <DashboardMetricCard
-                    icon={Percent}
-                    label="Imposto Meta 13,83%"
-                    tone="warning"
-                    value={formatCurrency(report.totals.metaTax)}
-                  />
-                  <DashboardMetricCard
-                    icon={Banknote}
-                    label="Gasto total Meta"
+                    label="Valor gasto"
                     tone="info"
                     value={formatCurrency(report.totals.spend)}
                   />
                   <DashboardMetricCard
                     icon={CircleDollarSign}
-                    label="Receita GAM bruta"
-                    tone="neutral"
-                    value={formatCurrency(report.totals.revenueGross)}
-                  />
-                  <DashboardMetricCard
-                    icon={Percent}
-                    label="Desconto ActiveView 10%"
-                    tone="warning"
-                    value={`-${formatCurrency(gamRevenueBreakdown.activeViewDiscount)}`}
-                  />
-                  <DashboardMetricCard
-                    icon={Percent}
-                    label="Imposto Receita 9%"
-                    tone="warning"
-                    value={`-${formatCurrency(gamRevenueBreakdown.tax)}`}
-                  />
-                  <DashboardMetricCard
-                    icon={CircleDollarSign}
                     description="Receita líquida após 10% ActiveView e 9% imposto"
-                    label="Receita GAM líquida"
+                    label="Receita GAM"
                     tone="positive"
                     value={formatCurrency(report.totals.revenueNet)}
                   />
                   <DashboardMetricCard
                     icon={
-                      report.totals.profit >= 0 ? ArrowUpRight : ArrowDownRight
+                      report.totals.roi >= 0 ? ArrowUpRight : ArrowDownRight
                     }
-                    label="Lucro líquido"
-                    tone={report.totals.profit >= 0 ? "positive" : "negative"}
-                    value={formatCurrency(report.totals.profit)}
-                  />
-                  <DashboardMetricCard
-                    icon={Percent}
+                    description={`Lucro líquido: ${formatCurrency(report.totals.profit)}`}
                     label="ROI"
                     tone={report.totals.roi >= 0 ? "positive" : "negative"}
                     value={`${formatNumber(report.totals.roi)}%`}
                   />
+                </section>
+
+                <section className="grid gap-4 md:grid-cols-3">
                   <DashboardMetricCard
-                    icon={Target}
-                    label="ROAS"
-                    tone="neutral"
-                    value={formatNumber(report.totals.roas)}
+                    icon={Banknote}
+                    label="Gasto médio/dia"
+                    tone="info"
+                    value={formatCurrency(averageSpendPerDay)}
+                  />
+                  <DashboardMetricCard
+                    icon={CircleDollarSign}
+                    label="Receita média/dia"
+                    tone="positive"
+                    value={formatCurrency(averageRevenuePerDay)}
                   />
                   <DashboardMetricCard
                     icon={TrendingUp}
-                    label="Campanhas lucrativas"
-                    tone="positive"
-                    value={String(report.statusTotals.PROFIT)}
-                  />
-                  <DashboardMetricCard
-                    icon={TrendingDown}
-                    label="Campanhas com prejuízo"
-                    tone="negative"
-                    value={String(report.statusTotals.LOSS)}
+                    description="Projeção de lucro líquido do mês com base na média diária do período."
+                    label="Previsão do mês"
+                    tone={monthlyForecast >= 0 ? "positive" : "negative"}
+                    value={formatCurrency(monthlyForecast)}
                   />
                 </section>
 
-                <section className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]">
-                  <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30">
-                    <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                      <div>
-                        <Badge>Performance diária</Badge>
-                        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">
-                          Lucro e ROI por dia
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-400">
-                          Linhas comparando lucro líquido e ROI no período
-                          selecionado.
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-slate-400">
-                        <span className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />{" "}
-                          Lucro
-                        </span>
-                        <span className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />{" "}
-                          ROI
-                        </span>
-                      </div>
-                    </div>
-                    <RoiPerformanceChart data={report.dailyRows} />
-                  </div>
-
-                  <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,rgba(127,29,29,0.24),rgba(15,23,42,0.86))] p-5 shadow-2xl shadow-slate-950/30">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <Badge variant="warning">Atenção</Badge>
-                        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">
-                          Campanhas que precisam de atenção
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-400">
-                          Spend sem receita, ROI negativo ou campanhas sem
-                          mapeamento.
-                        </p>
-                      </div>
-                      <AlertTriangle className="text-amber-200" size={24} />
-                    </div>
-                    <div className="mt-5 space-y-3">
-                      {attentionCampaigns.length === 0 ? (
-                        <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">
-                          Nenhuma campanha crítica encontrada neste período.
-                        </div>
-                      ) : (
-                        attentionCampaigns.slice(0, 6).map((campaign) => (
-                          <div
-                            className="rounded-2xl border border-white/10 bg-slate-950/50 p-4"
-                            key={campaign.campaignId}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="font-semibold text-white">
-                                  {campaign.campaignName}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                  {campaign.campaignId}
-                                </p>
-                              </div>
-                              <StatusBadge status={campaign.status} />
-                            </div>
-                            <p className="mt-3 text-sm text-slate-300">
-                              {getAttentionReason(campaign)}
-                            </p>
-                            <div className="mt-3 flex gap-4 text-xs text-slate-500">
-                              <span>
-                                Spend {formatCurrency(campaign.spend)}
-                              </span>
-                              <span>ROI {formatNumber(campaign.roi)}%</span>
-                            </div>
-                          </div>
-                        ))
+                <details className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30">
+                  <summary className="cursor-pointer text-sm font-semibold uppercase tracking-[0.18em] text-slate-300">
+                    Detalhamento do cálculo
+                  </summary>
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <DetailItem
+                      label="Gasto Meta original USD"
+                      value={formatCurrency(
+                        report.totals.metaSpendOriginal,
+                        "USD",
                       )}
+                    />
+                    <DetailItem
+                      label="Dólar usado"
+                      value={formatNumber(report.totals.dollarExchangeRate)}
+                    />
+                    <DetailItem
+                      label="Gasto Meta convertido BRL"
+                      value={formatCurrency(report.totals.metaSpendBRL)}
+                    />
+                    <DetailItem
+                      label="Imposto Meta 13,83%"
+                      value={formatCurrency(report.totals.metaTax)}
+                    />
+                    <DetailItem
+                      label="Valor gasto final"
+                      value={formatCurrency(report.totals.spend)}
+                    />
+                    <DetailItem
+                      label="Receita GAM bruta"
+                      value={formatCurrency(report.totals.revenueGross)}
+                    />
+                    <DetailItem
+                      label="Desconto ActiveView 10%"
+                      value={`-${formatCurrency(gamRevenueBreakdown.activeViewDiscount)}`}
+                    />
+                    <DetailItem
+                      label="Imposto Receita 9%"
+                      value={`-${formatCurrency(gamRevenueBreakdown.tax)}`}
+                    />
+                    <DetailItem
+                      label="Receita GAM líquida"
+                      value={formatCurrency(report.totals.revenueNet)}
+                    />
+                  </div>
+                </details>
+
+                <section className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-slate-950/30">
+                  <div className="mb-4 flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                    <div>
+                      <Badge>ROI & Lucro</Badge>
+                      <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">
+                        Gráfico ROI & Lucro
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Usa valor gasto final e receita GAM líquida no período
+                        selecionado.
+                      </p>
                     </div>
+                    <div className="flex items-center gap-4 text-xs text-slate-400">
+                      <span className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />{" "}
+                        Lucro
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />{" "}
+                        ROI
+                      </span>
+                    </div>
+                  </div>
+                  <RoiPerformanceChart data={report.dailyRows} />
+                </section>
+
+                <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-2xl shadow-slate-950/30">
+                  <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
+                    <div>
+                      <Badge>Diário</Badge>
+                      <h2 className="mt-3 text-2xl font-semibold text-white">
+                        Tabela diária
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Gasto final, receita líquida, lucro e ROI por dia.
+                      </p>
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      {report.dailyRows.length} dia(s)
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-white/10 text-left text-sm">
+                      <thead className="bg-white/[0.03] text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-4 py-4">Dia</th>
+                          <th className="px-4 py-4">Valor gasto</th>
+                          <th className="px-4 py-4">Receita GAM</th>
+                          <th className="px-4 py-4">Lucro</th>
+                          <th className="px-4 py-4">ROI</th>
+                          <th className="px-4 py-4">ROAS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10 text-slate-300">
+                        {report.dailyRows.length === 0 ? (
+                          <tr>
+                            <td
+                              className="px-4 py-10 text-center text-slate-500"
+                              colSpan={6}
+                            >
+                              Nenhum dado diário encontrado para os filtros
+                              selecionados.
+                            </td>
+                          </tr>
+                        ) : (
+                          report.dailyRows.map((row) => (
+                            <tr
+                              className="transition hover:bg-white/[0.03]"
+                              key={row.date}
+                            >
+                              <td className="px-4 py-4 font-medium text-white">
+                                {formatDate(row.date)}
+                              </td>
+                              <td className="px-4 py-4">
+                                {formatCurrency(row.spend)}
+                              </td>
+                              <td className="px-4 py-4 text-emerald-100">
+                                {formatCurrency(row.revenueNet)}
+                              </td>
+                              <td
+                                className={
+                                  row.profit >= 0
+                                    ? "px-4 py-4 text-emerald-200"
+                                    : "px-4 py-4 text-rose-200"
+                                }
+                              >
+                                {formatCurrency(row.profit)}
+                              </td>
+                              <td
+                                className={
+                                  row.roi >= 0
+                                    ? "px-4 py-4 text-emerald-200"
+                                    : "px-4 py-4 text-rose-200"
+                                }
+                              >
+                                {formatNumber(row.roi)}%
+                              </td>
+                              <td className="px-4 py-4">
+                                {formatNumber(row.roas)}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </section>
 
